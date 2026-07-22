@@ -11,6 +11,7 @@ return [
         'name' => getenv('DB_NAME') ?: 'libraryhub',
         'user' => getenv('DB_USER') ?: 'root',
         'pass' => getenv('DB_PASS') ?: '',
+        'ssl' => filter_var(getenv('DB_SSL') ?: '0', FILTER_VALIDATE_BOOL),
         'charset' => 'utf8mb4',
     ],
     'librarian' => [
