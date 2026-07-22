@@ -39,14 +39,4 @@ Plain PHP + MySQL rebuild of the library management system.
   - Password: `admin@#$123`
 - The app is intentionally lightweight and framework-free.
 
-## Deployment
-- See [DEPLOYMENT.md](DEPLOYMENT.md) for Apache, Nginx, database, and cron setup.
-
-
-## XAMPP Quick Start
-- Copy .env.example to .env in the project root.
-- Start Apache and MySQL in XAMPP.
-- Open the app at http://localhost/libraryhub/public/ if the project is inside htdocs.
-- If the project stays on another drive, create an Apache virtual host for it.
-
 
