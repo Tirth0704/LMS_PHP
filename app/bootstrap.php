@@ -1,0 +1,113 @@
+<?php
+
+function load_env_file(string $path): void
+{
+    if (!is_file($path)) {
+        return;
+    }
+
+    $lines = file($path, FILE_IGNORE_NEW_LINES);
+    if ($lines === false) {
+        return;
+    }
+
+    foreach ($lines as $line) {
+        $line = trim($line);
+        if ($line === '' || str_starts_with($line, '#')) {
+            continue;
+        }
+
+        if (str_starts_with($line, 'export ')) {
+            $line = trim(substr($line, 7));
+        }
+
+        $parts = explode('=', $line, 2);
+        if (count($parts) !== 2) {
+            continue;
+        }
+
+        [$key, $value] = $parts;
+        $key = trim($key);
+        $value = trim($value);
+
+        if ($key === '') {
+            continue;
+        }
+
+        if ((str_starts_with($value, '"') && str_ends_with($value, '"')) || (str_starts_with($value, "'") && str_ends_with($value, "'"))) {
+            $value = substr($value, 1, -1);
+        }
+
+        $_ENV[$key] = $value;
+        $_SERVER[$key] = $value;
+        putenv($key . '=' . $value);
+    }
+}
+
+load_env_file(dirname(__DIR__) . '/.env');
+
+$GLOBALS['config'] = require __DIR__ . '/config.php';
+date_default_timezone_set($GLOBALS['config']['timezone']);
+
+if (session_status() !== PHP_SESSION_ACTIVE) {
+    session_start();
+}
+
+require_once __DIR__ . '/database.php';
+require_once __DIR__ . '/helpers.php';
+require_once __DIR__ . '/CloudinaryService.php';
+require_once __DIR__ . '/WhatsAppService.php';
+require_once __DIR__ . '/RazorpayService.php';
+require_once __DIR__ . '/ReceiptService.php';
+require_once __DIR__ . '/LibraryService.php';
+
+$GLOBALS['database'] = new LibraryDatabase($GLOBALS['config']['db']);
+
+// Auto-migrate missing columns/tables in existing MySQL databases
+try {
+    $dbPdo = $GLOBALS['database']->pdo();
+    $cols = $dbPdo->query("SHOW COLUMNS FROM payments LIKE 'razorpay_order_id'")->fetchAll();
+    if (empty($cols)) {
+        $dbPdo->exec("ALTER TABLE payments ADD COLUMN razorpay_order_id VARCHAR(100) DEFAULT NULL");
+        $dbPdo->exec("ALTER TABLE payments ADD COLUMN razorpay_payment_id VARCHAR(100) DEFAULT NULL");
+        $dbPdo->exec("ALTER TABLE payments ADD COLUMN razorpay_signature VARCHAR(255) DEFAULT NULL");
+        $dbPdo->exec("ALTER TABLE payments ADD COLUMN receipt_path VARCHAR(255) DEFAULT NULL");
+    }
+    $dbPdo->exec("CREATE TABLE IF NOT EXISTS whatsapp_logs (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        student_id INT DEFAULT NULL,
+        event_type VARCHAR(50) NOT NULL,
+        to_number VARCHAR(30) NOT NULL,
+        message_body TEXT NOT NULL,
+        status VARCHAR(20) NOT NULL DEFAULT 'sent',
+        twilio_sid VARCHAR(100) DEFAULT NULL,
+        error_message TEXT DEFAULT NULL,
+        created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        CONSTRAINT fk_whatsapp_student FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+} catch (Throwable $e) {
+    // Gracefully ignore auto-migration errors if database user lacks ALTER permissions
+}
+
+$GLOBALS['cloudinary'] = new CloudinaryService($GLOBALS['config']);
+$GLOBALS['whatsapp'] = new WhatsAppService($GLOBALS['database'], $GLOBALS['config']);
+$GLOBALS['razorpay'] = new RazorpayService($GLOBALS['database'], $GLOBALS['config'], $GLOBALS['whatsapp']);
+$GLOBALS['receipt_service'] = new ReceiptService($GLOBALS['database']);
+$GLOBALS['library'] = new LibraryService($GLOBALS['database'], $GLOBALS['config'], $GLOBALS['whatsapp'], $GLOBALS['razorpay'], $GLOBALS['receipt_service']);
+
+function whatsapp(): WhatsAppService {
+    return $GLOBALS['whatsapp'];
+}
+
+function razorpay(): RazorpayService {
+    return $GLOBALS['razorpay'];
+}
+
+function receipt_service(): ReceiptService {
+    return $GLOBALS['receipt_service'];
+}
+
+function cloudinary(): CloudinaryService {
+    return $GLOBALS['cloudinary'];
+}
+
