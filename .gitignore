@@ -1,6 +1,11 @@
 # Environment Variables & Secrets
 .env
 
+# Documentation & Audit Files
+AUDIT.md
+DEPLOYMENT.md
+project.md
+
 # Old Backup Folders
 Library Management System - Copy/
 
