@@ -20,3 +20,7 @@ Thumbs.db
 # Temp files
 *.log
 scratch/
+test_whatsapp_receipt.php
+fpdf_temp/
+
+

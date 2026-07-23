@@ -98,7 +98,7 @@ function current_path(): string
         return 'home';
     }
 
-    if (preg_match('#^(?:receipts/)?receipt-(\d+)\.pdf$#i', $uriPath, $matches)) {
+    if (preg_match('#^(?:public/)?(?:receipts/)?receipt-(\d+)\.pdf$#i', $uriPath, $matches)) {
         $_GET['id'] = (int)$matches[1];
         return 'receipt-pdf';
     }

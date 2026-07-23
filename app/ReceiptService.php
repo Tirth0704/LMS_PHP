@@ -24,6 +24,17 @@ class ReceiptService
             }
         }
 
+        if (!file_exists($filePath)) {
+            return null;
+        }
+
+        if (function_exists('cloudinary') && cloudinary()->isConfigured()) {
+            $cloudinaryUrl = cloudinary()->uploadFile($filePath, "receipt-{$paymentId}");
+            if ($cloudinaryUrl) {
+                return $cloudinaryUrl;
+            }
+        }
+
         $baseUrl = rtrim(getenv('APP_BASE_URL') ?: '', '/');
         if ($baseUrl === '' || preg_match('/localhost|127\.0\.0\.1/', $baseUrl)) {
             $baseUrl = 'https://lms-php-qani.onrender.com';
