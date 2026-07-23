@@ -304,7 +304,7 @@ class LibraryService
     public function studentPendingRequestCount(int $studentId): int
     {
         return (int) $this->scalar(
-            'SELECT COUNT(*) FROM book_requests WHERE student_id = :student_id AND status = "Pending"',
+            "SELECT COUNT(*) FROM book_requests WHERE student_id = :student_id AND status = 'Pending'",
             ['student_id' => $studentId]
         );
     }
@@ -312,7 +312,7 @@ class LibraryService
     public function hasUnpaidFine(int $studentId): bool
     {
         return (int) $this->scalar(
-            'SELECT COUNT(*) FROM fines WHERE student_id = :student_id AND status = "Unpaid"',
+            "SELECT COUNT(*) FROM fines WHERE student_id = :student_id AND status = 'Unpaid'",
             ['student_id' => $studentId]
         ) > 0;
     }
@@ -320,9 +320,9 @@ class LibraryService
     public function lastRejectedRequest(int $studentId, int $bookId): ?array
     {
         return $this->one(
-            'SELECT * FROM book_requests
-             WHERE student_id = :student_id AND book_id = :book_id AND status = "Rejected"
-             ORDER BY rejected_at DESC, id DESC LIMIT 1',
+            "SELECT * FROM book_requests
+             WHERE student_id = :student_id AND book_id = :book_id AND status = 'Rejected'
+             ORDER BY rejected_at DESC, id DESC LIMIT 1",
             [
                 'student_id' => $studentId,
                 'book_id' => $bookId,
@@ -333,7 +333,7 @@ class LibraryService
     public function studentHasActiveIssueForBook(int $studentId, int $bookId): bool
     {
         return (int) $this->scalar(
-            'SELECT COUNT(*) FROM book_issues WHERE student_id = :student_id AND book_id = :book_id AND is_returned = 0 AND is_lost = 0',
+            "SELECT COUNT(*) FROM book_issues WHERE student_id = :student_id AND book_id = :book_id AND is_returned = 0 AND is_lost = 0",
             [
                 'student_id' => $studentId,
                 'book_id' => $bookId,
@@ -344,9 +344,9 @@ class LibraryService
     public function pendingRequestForBook(int $studentId, int $bookId): ?array
     {
         return $this->one(
-            'SELECT * FROM book_requests
-             WHERE student_id = :student_id AND book_id = :book_id AND status = "Pending"
-             ORDER BY requested_at DESC, id DESC LIMIT 1',
+            "SELECT * FROM book_requests
+             WHERE student_id = :student_id AND book_id = :book_id AND status = 'Pending'
+             ORDER BY requested_at DESC, id DESC LIMIT 1",
             [
                 'student_id' => $studentId,
                 'book_id' => $bookId,
@@ -681,13 +681,13 @@ class LibraryService
     public function finesForStudent(int $studentId): array
     {
         return $this->q(
-            'SELECT f.*, p.id AS payment_id, bi.book_id, b.title AS book_title
+            "SELECT f.*, p.id AS payment_id, bi.book_id, b.title AS book_title
              FROM fines f
              JOIN book_issues bi ON bi.id = f.issue_id
              JOIN books b ON b.id = bi.book_id
-             LEFT JOIN payments p ON p.fine_id = f.id AND p.status = "Completed"
+             LEFT JOIN payments p ON p.fine_id = f.id AND p.status = 'Completed'
              WHERE f.student_id = :student_id
-             ORDER BY f.created_at DESC, f.id DESC',
+             ORDER BY f.created_at DESC, f.id DESC",
             ['student_id' => $studentId]
         );
     }
@@ -695,12 +695,12 @@ class LibraryService
     public function unpaidFineForStudent(int $studentId): ?array
     {
         return $this->one(
-            'SELECT f.*, b.title AS book_title
+            "SELECT f.*, b.title AS book_title
              FROM fines f
              JOIN book_issues bi ON bi.id = f.issue_id
              JOIN books b ON b.id = bi.book_id
-             WHERE f.student_id = :student_id AND f.status = "Unpaid"
-             ORDER BY f.created_at DESC, f.id DESC LIMIT 1',
+             WHERE f.student_id = :student_id AND f.status = 'Unpaid'
+             ORDER BY f.created_at DESC, f.id DESC LIMIT 1",
             ['student_id' => $studentId]
         );
     }
@@ -1148,15 +1148,15 @@ class LibraryService
 
     public function librarianStats(): array
     {
-        $totalStudents = (int) $this->scalar('SELECT COUNT(*) FROM students');
-        $totalBooks = (int) $this->scalar('SELECT COUNT(*) FROM books WHERE is_archived = 0');
-        $activeIssues = (int) $this->scalar('SELECT COUNT(*) FROM book_issues WHERE is_returned = 0 AND is_lost = 0');
-        $overdueIssues = (int) $this->scalar('SELECT COUNT(*) FROM book_issues WHERE is_returned = 0 AND is_lost = 0 AND due_date < CURDATE()');
-        $pendingRequests = (int) $this->scalar('SELECT COUNT(*) FROM book_requests WHERE status = "Pending"');
-        $unpaidFines = (float) ($this->scalar('SELECT COALESCE(SUM(amount), 0) FROM fines WHERE status = "Unpaid"') ?: 0);
-        $totalRevenue = (float) ($this->scalar('SELECT COALESCE(SUM(amount), 0) FROM payments') ?: 0);
-        $onlinePayments = (int) $this->scalar('SELECT COUNT(*) FROM payments WHERE payment_method = "online"');
-        $offlinePayments = (int) $this->scalar('SELECT COUNT(*) FROM payments WHERE payment_method = "cash"');
+        $totalStudents = (int) $this->scalar("SELECT COUNT(*) FROM students");
+        $totalBooks = (int) $this->scalar("SELECT COUNT(*) FROM books WHERE is_archived = 0");
+        $activeIssues = (int) $this->scalar("SELECT COUNT(*) FROM book_issues WHERE is_returned = 0 AND is_lost = 0");
+        $overdueIssues = (int) $this->scalar("SELECT COUNT(*) FROM book_issues WHERE is_returned = 0 AND is_lost = 0 AND due_date < CURDATE()");
+        $pendingRequests = (int) $this->scalar("SELECT COUNT(*) FROM book_requests WHERE status = 'Pending'");
+        $unpaidFines = (float) ($this->scalar("SELECT COALESCE(SUM(amount), 0) FROM fines WHERE status = 'Unpaid'") ?: 0);
+        $totalRevenue = (float) ($this->scalar("SELECT COALESCE(SUM(amount), 0) FROM payments") ?: 0);
+        $onlinePayments = (int) $this->scalar("SELECT COUNT(*) FROM payments WHERE payment_method = 'online'");
+        $offlinePayments = (int) $this->scalar("SELECT COUNT(*) FROM payments WHERE payment_method = 'cash'");
 
         return [
             'students' => $totalStudents,
@@ -1178,7 +1178,7 @@ class LibraryService
         return [
             'active_issues' => $this->studentActiveIssueCount($studentId),
             'pending_requests' => $this->studentPendingRequestCount($studentId),
-            'unpaid_fines' => (float) ($this->scalar('SELECT COALESCE(SUM(amount), 0) FROM fines WHERE student_id = :student_id AND status = "Unpaid"', ['student_id' => $studentId]) ?: 0),
+            'unpaid_fines' => (float) ($this->scalar("SELECT COALESCE(SUM(amount), 0) FROM fines WHERE student_id = :student_id AND status = 'Unpaid'", ['student_id' => $studentId]) ?: 0),
             'unread_notifications' => $this->unreadNotificationCount($studentId),
         ];
     }

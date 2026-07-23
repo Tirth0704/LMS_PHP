@@ -12,11 +12,11 @@ class ReceiptService
     public function renderReceiptHtml(int $paymentId): ?string
     {
         $payment = $this->db->fetch(
-            'SELECT p.*, s.full_name AS student_name, s.enrollment_number, s.department, s.email, f.fine_type, f.description AS fine_description
+            "SELECT p.*, s.full_name AS student_name, s.enrollment_number, s.department, s.email, f.fine_type, f.description AS fine_description
              FROM payments p
              JOIN students s ON s.id = p.student_id
              LEFT JOIN fines f ON f.id = p.fine_id
-             WHERE p.id = :id AND p.status = "Completed" LIMIT 1',
+             WHERE p.id = :id AND p.status = 'Completed' LIMIT 1",
             ['id' => $paymentId]
         );
 

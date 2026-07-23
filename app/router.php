@@ -851,7 +851,7 @@ function student_pay_fine_page() {
     $fineId = (int)($_GET['fine_id'] ?? 0);
     $student = library()->studentById((int)current_student()['id']);
 
-    $fine = db()->fetch('SELECT * FROM fines WHERE id = :id AND student_id = :sid AND status = "Unpaid" LIMIT 1', [
+    $fine = db()->fetch("SELECT * FROM fines WHERE id = :id AND student_id = :sid AND status = 'Unpaid' LIMIT 1", [
         'id' => $fineId,
         'sid' => $student['id']
     ]);
