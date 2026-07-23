@@ -981,7 +981,9 @@ function student_receipts_page() {
                             <td class="fw-bold"><?= money($p['amount']) ?></td>
                             <td><?= status_badge($p['status']) ?></td>
                             <td>
-                                <a href="<?= esc(route_url('receipt-pdf', ['id' => $p['id']])) ?>" target="_blank" class="btn btn-sm btn-outline-primary">View / Print Receipt</a>
+                                <a href="<?= esc(route_url('receipt-pdf', ['id' => $p['id']])) ?>" target="_blank" class="btn btn-sm btn-primary py-1 px-3 fw-semibold">
+                                    <i class="bi bi-file-earmark-pdf-fill me-1"></i> Download PDF Receipt
+                                </a>
                             </td>
                         </tr>
                     <?php endforeach; ?>
@@ -1807,6 +1809,7 @@ function librarian_payments_page() {
                     <th>Amount</th>
                     <th>Created Date</th>
                     <th>Razorpay ID</th>
+                    <th>Receipt PDF</th>
                 </tr>
             </thead>
             <tbody>
@@ -1818,6 +1821,15 @@ function librarian_payments_page() {
                         <td class="fw-bold"><?= money($p['amount']) ?></td>
                         <td><?= format_datetime($p['created_at']) ?></td>
                         <td><code><?= esc($p['razorpay_payment_id'] ?? '—') ?></code></td>
+                        <td>
+                            <?php if ($p['status'] === 'Completed'): ?>
+                                <a href="<?= esc(route_url('receipt-pdf', ['id' => $p['id']])) ?>" target="_blank" class="btn btn-sm btn-outline-primary py-1 px-2 fw-semibold">
+                                    <i class="bi bi-file-earmark-pdf-fill text-danger me-1"></i> View / Print PDF
+                                </a>
+                            <?php else: ?>
+                                <span class="text-muted small">—</span>
+                            <?php endif; ?>
+                        </td>
                     </tr>
                 <?php endforeach; ?>
             </tbody>

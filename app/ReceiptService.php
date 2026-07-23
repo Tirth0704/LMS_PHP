@@ -39,6 +39,7 @@ class ReceiptService
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Payment Receipt - <?= esc($receiptNo) ?></title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     <style>
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
@@ -46,6 +47,13 @@ class ReceiptService
             margin: 0;
             padding: 40px 20px;
             color: #1a1a2e;
+        }
+        .action-bar {
+            max-width: 650px;
+            margin: 0 auto 20px auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
         }
         .receipt-card {
             max-width: 650px;
@@ -118,29 +126,52 @@ class ReceiptService
             font-size: 12px;
             color: #9ca3af;
         }
-        .print-btn {
-            display: block;
-            width: 100%;
-            max-width: 200px;
-            margin: 25px auto 0;
+        .btn-action {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
             padding: 10px 20px;
             background: #4f46e5;
             color: white;
             border: none;
-            border-radius: 6px;
+            border-radius: 8px;
             font-weight: 600;
+            font-size: 14px;
             cursor: pointer;
-            text-align: center;
             text-decoration: none;
+            transition: all 0.2s ease;
+            box-shadow: 0 2px 4px rgba(79, 70, 229, 0.2);
+        }
+        .btn-action:hover {
+            background: #4338ca;
+            color: white;
+            transform: translateY(-1px);
+        }
+        .btn-secondary-action {
+            background: #e0e7ff;
+            color: #4338ca;
+        }
+        .btn-secondary-action:hover {
+            background: #c7d2fe;
+            color: #3730a3;
         }
         @media print {
             body { background: white; padding: 0; }
+            .action-bar { display: none !important; }
             .receipt-card { box-shadow: none; border: none; padding: 20px; }
-            .print-btn { display: none; }
+            .btn-action { display: none !important; }
         }
     </style>
 </head>
 <body>
+
+<div class="action-bar">
+    <a href="javascript:history.back()" class="btn-action btn-secondary-action"><i class="bi bi-arrow-left"></i> Back</a>
+    <div style="display: flex; gap: 10px;">
+        <button onclick="window.print()" class="btn-action"><i class="bi bi-file-earmark-pdf-fill"></i> Save / Download PDF</button>
+        <button onclick="window.print()" class="btn-action btn-secondary-action"><i class="bi bi-printer"></i> Print</button>
+    </div>
+</div>
 
 <div class="receipt-card">
     <div class="header">
@@ -204,7 +235,9 @@ class ReceiptService
         <p>Generated on <?= date('d M Y H:i') ?> UTC | LibraryHub Systems</p>
     </div>
 
-    <button onclick="window.print()" class="print-btn">Print / Download PDF</button>
+    <div style="margin-top: 30px; text-align: center;">
+        <button onclick="window.print()" class="btn-action"><i class="bi bi-download me-1"></i> Save as PDF / Print Receipt</button>
+    </div>
 </div>
 
 </body>
