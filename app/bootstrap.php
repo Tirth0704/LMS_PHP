@@ -99,6 +99,7 @@ try {
 
         // Ensure payments table columns exist
         $neededPayCols = [
+            'reference_no'        => "ALTER TABLE payments ADD COLUMN reference_no VARCHAR(100) DEFAULT NULL",
             'razorpay_order_id'   => "ALTER TABLE payments ADD COLUMN razorpay_order_id VARCHAR(100) DEFAULT NULL",
             'razorpay_payment_id' => "ALTER TABLE payments ADD COLUMN razorpay_payment_id VARCHAR(100) DEFAULT NULL",
             'razorpay_signature'  => "ALTER TABLE payments ADD COLUMN razorpay_signature VARCHAR(255) DEFAULT NULL",
