@@ -9,6 +9,29 @@ class ReceiptService
         $this->db = $db;
     }
 
+    public function ensurePdfFile(int $paymentId): ?string
+    {
+        $dir = __DIR__ . '/../public/receipts';
+        if (!is_dir($dir)) {
+            @mkdir($dir, 0777, true);
+        }
+        $filePath = $dir . "/receipt-{$paymentId}.pdf";
+
+        if (!file_exists($filePath)) {
+            $pdfBinary = $this->generatePdfBinary($paymentId);
+            if ($pdfBinary) {
+                file_put_contents($filePath, $pdfBinary);
+            }
+        }
+
+        $baseUrl = rtrim(getenv('APP_BASE_URL') ?: '', '/');
+        if ($baseUrl === '' || preg_match('/localhost|127\.0\.0\.1/', $baseUrl)) {
+            $baseUrl = 'https://lms-php-qani.onrender.com';
+        }
+
+        return $baseUrl . "/receipts/receipt-{$paymentId}.pdf";
+    }
+
     public function generatePdfBinary(int $paymentId): ?string
     {
         $payment = $this->db->fetch(

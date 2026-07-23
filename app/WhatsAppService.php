@@ -156,28 +156,21 @@ class WhatsAppService
         $mediaUrl = null;
 
         if ($paymentId) {
-            $payment = $this->db->fetch('SELECT * FROM payments WHERE id = :id LIMIT 1', ['id' => $paymentId]);
-            if ($payment && !empty($payment['receipt_path']) && str_starts_with($payment['receipt_path'], 'http')) {
-                $receiptUrl = $payment['receipt_path'];
-                $mediaUrl = $payment['receipt_path'];
+            $pdfUrl = receipt_service()->ensurePdfFile($paymentId);
+            if ($pdfUrl) {
+                $receiptUrl = $pdfUrl;
+                $mediaUrl = $pdfUrl;
             } else {
                 $receiptUrl = route_url('receipt-pdf', ['id' => $paymentId]);
-                $baseUrl = rtrim(getenv('APP_BASE_URL') ?: '', '/');
-                if ($baseUrl !== '' && !preg_match('/localhost|127\.0\.0\.1/', $baseUrl)) {
-                    $mediaUrl = $receiptUrl;
-                }
+                $mediaUrl = $receiptUrl;
             }
         }
 
         $msg = "Hello {$name},\n\n"
              . "🧾 *Payment Confirmation Receipt*\n\n"
-             . "✅ Your payment of *₹{$formattedAmount}* has been confirmed via {$method}.\n";
-        if ($receiptUrl) {
-            $msg .= "📄 *View/Download PDF Receipt*:\n{$receiptUrl}\n\n";
-        } else {
-            $msg .= "You can view and print your payment receipt from your LibraryHub Receipts dashboard.\n\n";
-        }
-        $msg .= "Thank you for using LibraryHub!\n\n— LibraryHub";
+             . "✅ Your payment of *₹{$formattedAmount}* has been confirmed via {$method}.\n\n"
+             . "📎 Attached is your official PDF payment receipt.\n\n"
+             . "Thank you for using LibraryHub!\n\n— LibraryHub";
 
         return $this->sendWhatsApp((int)$student['id'], $student['phone_number'], 'fine_paid', $msg, $mediaUrl);
     }
