@@ -5,15 +5,55 @@ return [
     'timezone' => 'Asia/Kolkata',
     'debug' => filter_var(getenv('APP_DEBUG') ?: '1', FILTER_VALIDATE_BOOL),
     'base_url' => rtrim(getenv('APP_BASE_URL') ?: '', '/'),
-    'db' => [
-        'host' => getenv('DB_HOST') ?: '127.0.0.1',
-        'port' => getenv('DB_PORT') ?: '3306',
-        'name' => getenv('DB_NAME') ?: 'libraryhub',
-        'user' => getenv('DB_USER') ?: 'root',
-        'pass' => getenv('DB_PASS') ?: '',
-        'ssl' => filter_var(getenv('DB_SSL') ?: '0', FILTER_VALIDATE_BOOL),
-        'charset' => 'utf8mb4',
-    ],
+    'db' => (function() {
+        $dbUrl = getenv('MYSQL_URL') ?: (getenv('DATABASE_URL') ?: '');
+        $dbHost = trim(getenv('DB_HOST') ?: '127.0.0.1');
+        $dbPort = trim(getenv('DB_PORT') ?: '3306');
+        $dbName = trim(getenv('DB_NAME') ?: 'libraryhub');
+        $dbUser = trim(getenv('DB_USER') ?: 'root');
+        $dbPass = getenv('DB_PASS') !== false ? getenv('DB_PASS') : '';
+        $dbSsl = filter_var(getenv('DB_SSL') ?: '0', FILTER_VALIDATE_BOOL);
+
+        if ($dbUrl !== '') {
+            $parsed = parse_url($dbUrl);
+            if ($parsed) {
+                if (!empty($parsed['host'])) $dbHost = $parsed['host'];
+                if (!empty($parsed['port'])) $dbPort = (string)$parsed['port'];
+                if (!empty($parsed['user'])) $dbUser = urldecode($parsed['user']);
+                if (isset($parsed['pass'])) $dbPass = urldecode($parsed['pass']);
+                if (!empty($parsed['path'])) $dbName = ltrim($parsed['path'], '/');
+            }
+        }
+
+        // Clean up $dbHost if scheme was included (e.g. mysql://host)
+        if (preg_match('/^([a-z0-9+.-]+):\/\/(.*)/i', $dbHost, $matches)) {
+            $dbHost = $matches[2];
+        }
+
+        // If host contains port (e.g. host.aivencloud.com:25348)
+        if (str_contains($dbHost, ':')) {
+            $parts = explode(':', $dbHost, 2);
+            $dbHost = $parts[0];
+            if ($dbPort === '3306' || $dbPort === '') {
+                $dbPort = $parts[1];
+            }
+        }
+
+        // Auto-enable SSL for cloud databases (like Aiven)
+        if (str_contains($dbHost, 'aivencloud.com') || str_contains($dbHost, 'cleardb') || str_contains($dbHost, 'neon')) {
+            $dbSsl = true;
+        }
+
+        return [
+            'host' => $dbHost,
+            'port' => $dbPort,
+            'name' => $dbName,
+            'user' => $dbUser,
+            'pass' => $dbPass,
+            'ssl' => $dbSsl,
+            'charset' => 'utf8mb4',
+        ];
+    })(),
     'librarian' => [
         'email' => getenv('LIBRARIAN_EMAIL') ?: 'admin.lms@gmail.com',
         'password' => getenv('LIBRARIAN_PASSWORD') ?: 'admin@#$123',
