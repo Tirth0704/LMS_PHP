@@ -86,19 +86,29 @@ try {
             }
         }
     } else {
-        // Ensure is_archived column exists in books table
-        $colsBooks = $dbPdo->query("SHOW COLUMNS FROM books LIKE 'is_archived'")->fetchAll();
-        if (empty($colsBooks)) {
-            $dbPdo->exec("ALTER TABLE books ADD COLUMN is_archived TINYINT(1) NOT NULL DEFAULT 0");
+        // Ensure books table columns exist
+        $neededBooksCols = [
+            'is_archived' => "ALTER TABLE books ADD COLUMN is_archived TINYINT(1) NOT NULL DEFAULT 0",
+        ];
+        foreach ($neededBooksCols as $colName => $alterSql) {
+            $colExists = $dbPdo->query("SHOW COLUMNS FROM books LIKE '{$colName}'")->fetchAll();
+            if (empty($colExists)) {
+                try { $dbPdo->exec($alterSql); } catch (Throwable $e) {}
+            }
         }
 
         // Ensure payments table columns exist
-        $colsPay = $dbPdo->query("SHOW COLUMNS FROM payments LIKE 'razorpay_order_id'")->fetchAll();
-        if (empty($colsPay)) {
-            $dbPdo->exec("ALTER TABLE payments ADD COLUMN razorpay_order_id VARCHAR(100) DEFAULT NULL");
-            $dbPdo->exec("ALTER TABLE payments ADD COLUMN razorpay_payment_id VARCHAR(100) DEFAULT NULL");
-            $dbPdo->exec("ALTER TABLE payments ADD COLUMN razorpay_signature VARCHAR(255) DEFAULT NULL");
-            $dbPdo->exec("ALTER TABLE payments ADD COLUMN receipt_path VARCHAR(255) DEFAULT NULL");
+        $neededPayCols = [
+            'razorpay_order_id'   => "ALTER TABLE payments ADD COLUMN razorpay_order_id VARCHAR(100) DEFAULT NULL",
+            'razorpay_payment_id' => "ALTER TABLE payments ADD COLUMN razorpay_payment_id VARCHAR(100) DEFAULT NULL",
+            'razorpay_signature'  => "ALTER TABLE payments ADD COLUMN razorpay_signature VARCHAR(255) DEFAULT NULL",
+            'receipt_path'        => "ALTER TABLE payments ADD COLUMN receipt_path VARCHAR(255) DEFAULT NULL",
+        ];
+        foreach ($neededPayCols as $colName => $alterSql) {
+            $colExists = $dbPdo->query("SHOW COLUMNS FROM payments LIKE '{$colName}'")->fetchAll();
+            if (empty($colExists)) {
+                try { $dbPdo->exec($alterSql); } catch (Throwable $e) {}
+            }
         }
 
         // Ensure book_returns table exists and has all required columns
@@ -121,16 +131,21 @@ try {
                 created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
         } else {
-            $colsCond = $dbPdo->query("SHOW COLUMNS FROM book_returns LIKE 'return_condition'")->fetchAll();
-            if (empty($colsCond)) {
-                $dbPdo->exec("ALTER TABLE book_returns ADD COLUMN return_condition VARCHAR(20) NOT NULL DEFAULT 'Good'");
-                $dbPdo->exec("ALTER TABLE book_returns ADD COLUMN rent_charged DECIMAL(10,2) NOT NULL DEFAULT 0.00");
-                $dbPdo->exec("ALTER TABLE book_returns ADD COLUMN late_fine DECIMAL(10,2) NOT NULL DEFAULT 0.00");
-                $dbPdo->exec("ALTER TABLE book_returns ADD COLUMN damage_fine DECIMAL(10,2) NOT NULL DEFAULT 0.00");
-                $dbPdo->exec("ALTER TABLE book_returns ADD COLUMN lost_amount DECIMAL(10,2) NOT NULL DEFAULT 0.00");
-                $dbPdo->exec("ALTER TABLE book_returns ADD COLUMN total_due DECIMAL(10,2) NOT NULL DEFAULT 0.00");
-                $dbPdo->exec("ALTER TABLE book_returns ADD COLUMN payment_mode VARCHAR(20) NOT NULL DEFAULT 'offline'");
-                $dbPdo->exec("ALTER TABLE book_returns ADD COLUMN librarian_notes TEXT DEFAULT NULL");
+            $neededRetCols = [
+                'return_condition' => "ALTER TABLE book_returns ADD COLUMN return_condition VARCHAR(20) NOT NULL DEFAULT 'Good'",
+                'rent_charged'     => "ALTER TABLE book_returns ADD COLUMN rent_charged DECIMAL(10,2) NOT NULL DEFAULT 0.00",
+                'late_fine'        => "ALTER TABLE book_returns ADD COLUMN late_fine DECIMAL(10,2) NOT NULL DEFAULT 0.00",
+                'damage_fine'      => "ALTER TABLE book_returns ADD COLUMN damage_fine DECIMAL(10,2) NOT NULL DEFAULT 0.00",
+                'lost_amount'      => "ALTER TABLE book_returns ADD COLUMN lost_amount DECIMAL(10,2) NOT NULL DEFAULT 0.00",
+                'total_due'        => "ALTER TABLE book_returns ADD COLUMN total_due DECIMAL(10,2) NOT NULL DEFAULT 0.00",
+                'payment_mode'     => "ALTER TABLE book_returns ADD COLUMN payment_mode VARCHAR(20) NOT NULL DEFAULT 'offline'",
+                'librarian_notes'  => "ALTER TABLE book_returns ADD COLUMN librarian_notes TEXT DEFAULT NULL",
+            ];
+            foreach ($neededRetCols as $colName => $alterSql) {
+                $colExists = $dbPdo->query("SHOW COLUMNS FROM book_returns LIKE '{$colName}'")->fetchAll();
+                if (empty($colExists)) {
+                    try { $dbPdo->exec($alterSql); } catch (Throwable $e) {}
+                }
             }
         }
     }
