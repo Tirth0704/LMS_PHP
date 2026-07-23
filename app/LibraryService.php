@@ -381,8 +381,8 @@ class LibraryService
 
         if ($this->hasUnpaidFine($studentId)) {
             $this->exec(
-                'INSERT INTO book_requests (student_id, book_id, status, requested_at, updated_at)
-                 VALUES (:student_id, :book_id, "Hold", NOW(), NOW())',
+                "INSERT INTO book_requests (student_id, book_id, status, requested_at, updated_at)
+                 VALUES (:student_id, :book_id, 'Hold', NOW(), NOW())",
                 ['student_id' => $studentId, 'book_id' => $bookId]
             );
             return ['ok' => true, 'hold' => true, 'message' => 'Your request has been placed on hold because you have unpaid fines.'];
@@ -398,8 +398,8 @@ class LibraryService
         }
 
         $this->exec(
-            'INSERT INTO book_requests (student_id, book_id, status, requested_at, updated_at)
-             VALUES (:student_id, :book_id, "Pending", NOW(), NOW())',
+            "INSERT INTO book_requests (student_id, book_id, status, requested_at, updated_at)
+             VALUES (:student_id, :book_id, 'Pending', NOW(), NOW())",
             ['student_id' => $studentId, 'book_id' => $bookId]
         );
 
@@ -465,7 +465,7 @@ class LibraryService
         }
 
         if ($request['status'] === 'Pending') {
-            $this->exec('UPDATE book_requests SET status = "Cancelled", updated_at = NOW() WHERE id = :id', ['id' => $requestId]);
+            $this->exec("UPDATE book_requests SET status = 'Cancelled', updated_at = NOW() WHERE id = :id", ['id' => $requestId]);
             return ['ok' => true, 'message' => 'Request cancelled successfully.'];
         }
 
@@ -473,7 +473,7 @@ class LibraryService
             $book = $this->bookById((int) $request['book_id']);
             $student = $this->studentById($studentId);
             $this->adjustScore($studentId, (int) app_config('business.score_cancelled_approved', -3), 'cancelled_approved', 'Approved request was cancelled.');
-            $this->exec('UPDATE book_requests SET status = "Cancelled", updated_at = NOW() WHERE id = :id', ['id' => $requestId]);
+            $this->exec("UPDATE book_requests SET status = 'Cancelled', updated_at = NOW() WHERE id = :id", ['id' => $requestId]);
             $this->logActivity('student', $studentId, 'book_request', $requestId, 'cancelled_approved_request', 'Approved request was cancelled.');
             return ['ok' => true, 'message' => 'Approved request cancelled. Behaviour score updated.'];
         }
@@ -515,8 +515,8 @@ class LibraryService
             $dueDate = date('Y-m-d', strtotime($issueDate . ' +' . (int) app_config('business.loan_period_days', 14) . ' days'));
 
             $this->exec(
-                'INSERT INTO book_issues (student_id, book_id, request_id, issue_date, due_date, return_date, is_returned, is_lost, status, created_at, updated_at)
-                 VALUES (:student_id, :book_id, :request_id, :issue_date, :due_date, NULL, 0, 0, "Issued", NOW(), NOW())',
+                "INSERT INTO book_issues (student_id, book_id, request_id, issue_date, due_date, return_date, is_returned, is_lost, status, created_at, updated_at)
+                 VALUES (:student_id, :book_id, :request_id, :issue_date, :due_date, NULL, 0, 0, 'Issued', NOW(), NOW())",
                 [
                     'student_id' => $studentId,
                     'book_id' => $bookId,
@@ -528,15 +528,15 @@ class LibraryService
 
             $issueId = $this->db->lastInsertId();
             $this->exec(
-                'UPDATE books
+                "UPDATE books
                  SET available_copies = available_copies - 1,
                      issued_copies = issued_copies + 1,
-                     status = CASE WHEN available_copies - 1 > 0 THEN "Available" ELSE "Unavailable" END,
+                     status = CASE WHEN available_copies - 1 > 0 THEN 'Available' ELSE 'Unavailable' END,
                      updated_at = NOW()
-                 WHERE id = :book_id',
+                 WHERE id = :book_id",
                 ['book_id' => $bookId]
             );
-            $this->exec('UPDATE book_requests SET status = "Approved", updated_at = NOW() WHERE id = :id', ['id' => $requestId]);
+            $this->exec("UPDATE book_requests SET status = 'Approved', updated_at = NOW() WHERE id = :id", ['id' => $requestId]);
             $this->logActivity('librarian', null, 'book_issue', $issueId, 'request_approved', 'Book request approved.');
             $this->createNotification($studentId, 'request_approved', 'Book Request Approved', "Your request for {$request['book_title']} has been approved. Due date: " . date('d M Y', strtotime($dueDate)));
 
@@ -575,7 +575,7 @@ class LibraryService
             }
 
             $this->exec(
-                'UPDATE book_requests SET status = "Rejected", rejection_reason = :reason, rejected_at = NOW(), updated_at = NOW() WHERE id = :id',
+                "UPDATE book_requests SET status = 'Rejected', rejection_reason = :reason, rejected_at = NOW(), updated_at = NOW() WHERE id = :id",
                 [
                     'id' => $requestId,
                     'reason' => trim($reason),
@@ -603,7 +603,7 @@ class LibraryService
         if (!$request) {
             return ['ok' => false, 'message' => 'Request not found.'];
         }
-        $this->exec('UPDATE book_requests SET status = "Hold", updated_at = NOW() WHERE id = :id', ['id' => $requestId]);
+        $this->exec("UPDATE book_requests SET status = 'Hold', updated_at = NOW() WHERE id = :id", ['id' => $requestId]);
         $this->logActivity('librarian', null, 'book_request', $requestId, 'request_held', 'Book request held.');
         return ['ok' => true, 'message' => 'Request placed on hold.'];
     }
@@ -665,8 +665,8 @@ class LibraryService
     public function createFine(int $studentId, int $issueId, string $fineType, float $amount, ?string $description = null): int
     {
         $this->exec(
-            'INSERT INTO fines (student_id, issue_id, fine_type, amount, description, status, created_at, paid_at)
-             VALUES (:student_id, :issue_id, :fine_type, :amount, :description, "Unpaid", NOW(), NULL)',
+            "INSERT INTO fines (student_id, issue_id, fine_type, amount, description, status, created_at, paid_at)
+             VALUES (:student_id, :issue_id, :fine_type, :amount, :description, 'Unpaid', NOW(), NULL)",
             [
                 'student_id' => $studentId,
                 'issue_id' => $issueId,
@@ -751,7 +751,7 @@ class LibraryService
     public function markFinePaid(int $fineId): bool
     {
         return $this->exec(
-            'UPDATE fines SET status = "Paid", paid_at = NOW() WHERE id = :id',
+            "UPDATE fines SET status = 'Paid', paid_at = NOW() WHERE id = :id",
             ['id' => $fineId]
         ) > 0;
     }
@@ -759,7 +759,7 @@ class LibraryService
     public function updatePaymentStatus(int $paymentId, string $status, ?string $reference = null): bool
     {
         return $this->exec(
-            'UPDATE payments SET status = :status, reference_no = :reference_no, completed_at = IF(:status = "Completed", NOW(), completed_at) WHERE id = :id',
+            "UPDATE payments SET status = :status, reference_no = :reference_no, completed_at = IF(:status = 'Completed', NOW(), completed_at) WHERE id = :id",
             [
                 'id' => $paymentId,
                 'status' => $status,
@@ -865,8 +865,8 @@ class LibraryService
             $returnId = $this->db->lastInsertId();
 
             $this->exec(
-                'INSERT INTO fines (student_id, issue_id, fine_type, amount, description, status, created_at, paid_at)
-                 VALUES (:student_id, :issue_id, :fine_type, :amount, :description, "Unpaid", NOW(), NULL)',
+                "INSERT INTO fines (student_id, issue_id, fine_type, amount, description, status, created_at, paid_at)
+                 VALUES (:student_id, :issue_id, :fine_type, :amount, :description, 'Unpaid', NOW(), NULL)",
                 [
                     'student_id' => $studentId,
                     'issue_id' => $issueId,
@@ -881,31 +881,31 @@ class LibraryService
 
             if ($condition === 'Lost') {
                 $this->exec(
-                    'UPDATE book_issues SET is_lost = 1, is_returned = 0, return_date = :return_date, status = "Lost", updated_at = NOW() WHERE id = :id',
+                    "UPDATE book_issues SET is_lost = 1, is_returned = 0, return_date = :return_date, status = 'Lost', updated_at = NOW() WHERE id = :id",
                     ['id' => $issueId, 'return_date' => $today]
                 );
                 $this->exec(
-                    'UPDATE books
+                    "UPDATE books
                      SET total_copies = GREATEST(total_copies - 1, 0),
                          issued_copies = GREATEST(issued_copies - 1, 0),
-                         status = CASE WHEN available_copies > 0 THEN "Available" ELSE "Unavailable" END,
+                         status = CASE WHEN available_copies > 0 THEN 'Available' ELSE 'Unavailable' END,
                          updated_at = NOW()
-                     WHERE id = :id',
+                     WHERE id = :id",
                     ['id' => $bookId]
                 );
                 $behaviourChange = (int) app_config('business.score_lost_book', -25);
             } else {
                 $this->exec(
-                    'UPDATE book_issues SET is_returned = 1, return_date = :return_date, status = "Returned", updated_at = NOW() WHERE id = :id',
+                    "UPDATE book_issues SET is_returned = 1, return_date = :return_date, status = 'Returned', updated_at = NOW() WHERE id = :id",
                     ['id' => $issueId, 'return_date' => $today]
                 );
                 $this->exec(
-                    'UPDATE books
+                    "UPDATE books
                      SET available_copies = LEAST(available_copies + 1, total_copies),
                          issued_copies = GREATEST(issued_copies - 1, 0),
-                         status = CASE WHEN available_copies + 1 > 0 THEN "Available" ELSE "Unavailable" END,
+                         status = CASE WHEN available_copies + 1 > 0 THEN 'Available' ELSE 'Unavailable' END,
                          updated_at = NOW()
-                     WHERE id = :id',
+                     WHERE id = :id",
                     ['id' => $bookId]
                 );
                 if ($condition === 'Damaged') {
@@ -1024,8 +1024,8 @@ class LibraryService
     public function createRecommendation(int $studentId, array $input): array
     {
         $this->exec(
-            'INSERT INTO book_recommendations (student_id, book_name, author, publisher, reason, status, submitted_at, reviewed_at)
-             VALUES (:student_id, :book_name, :author, :publisher, :reason, "Pending", NOW(), NULL)',
+            "INSERT INTO book_recommendations (student_id, book_name, author, publisher, reason, status, submitted_at, reviewed_at)
+             VALUES (:student_id, :book_name, :author, :publisher, :reason, 'Pending', NOW(), NULL)",
             [
                 'student_id' => $studentId,
                 'book_name' => trim($input['book_name'] ?? ''),

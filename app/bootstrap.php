@@ -73,11 +73,17 @@ try {
         // Run full schema creation if database is fresh/empty
         $schemaPath = __DIR__ . '/../database/schema.sql';
         if (file_exists($schemaPath)) {
-            $sql = file_get_contents($schemaPath);
-            // Remove CREATE DATABASE & USE commands so it executes cleanly on any configured db name (e.g. defaultdb)
-            $sql = preg_replace('/CREATE DATABASE[^;]*;/i', '', $sql);
-            $sql = preg_replace('/USE [^;]*;/i', '', $sql);
-            $dbPdo->exec($sql);
+            $rawSql = file_get_contents($schemaPath);
+            $rawSql = preg_replace('/CREATE DATABASE[^;]*;/i', '', $rawSql);
+            $rawSql = preg_replace('/USE [^;]*;/i', '', $rawSql);
+            $statements = array_filter(array_map('trim', explode(';', $rawSql)));
+            foreach ($statements as $stmt) {
+                if ($stmt !== '') {
+                    try {
+                        $dbPdo->exec($stmt);
+                    } catch (Throwable $e) {}
+                }
+            }
         }
     } else {
         // Ensure is_archived column exists in books table

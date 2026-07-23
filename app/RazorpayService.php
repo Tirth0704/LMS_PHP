@@ -116,8 +116,8 @@ class RazorpayService
         try {
             // Insert Payment
             $this->db->execute(
-                'INSERT INTO payments (student_id, fine_id, amount, payment_method, status, razorpay_order_id, razorpay_payment_id, razorpay_signature, receipt_path, completed_at, created_at)
-                 VALUES (:student_id, :fine_id, :amount, "razorpay", "Completed", :order_id, :payment_id, :signature, "dynamic", NOW(), NOW())',
+                "INSERT INTO payments (student_id, fine_id, amount, payment_method, status, razorpay_order_id, razorpay_payment_id, razorpay_signature, receipt_path, completed_at, created_at)
+                 VALUES (:student_id, :fine_id, :amount, 'razorpay', 'Completed', :order_id, :payment_id, :signature, 'dynamic', NOW(), NOW())",
                 [
                     'student_id' => $studentId,
                     'fine_id' => $fineId,
@@ -131,7 +131,7 @@ class RazorpayService
 
             // Mark Fine Paid
             $this->db->execute(
-                'UPDATE fines SET status = "Paid", paid_at = NOW() WHERE id = :id',
+                "UPDATE fines SET status = 'Paid', paid_at = NOW() WHERE id = :id",
                 ['id' => $fineId]
             );
 
@@ -146,8 +146,8 @@ class RazorpayService
             );
 
             $this->db->execute(
-                'INSERT INTO behaviour_logs (student_id, score_before, score_change, score_after, event_type, description, created_at)
-                 VALUES (:student_id, :score_before, :score_change, :score_after, "paid_fine_immediately", "Paid fine via Razorpay", NOW())',
+                "INSERT INTO behaviour_logs (student_id, score_before, score_change, score_after, event_type, description, created_at)
+                 VALUES (:student_id, :score_before, :score_change, :score_after, 'paid_fine_immediately', 'Paid fine via Razorpay', NOW())",
                 [
                     'student_id' => $studentId,
                     'score_before' => $student['behaviour_score'],
@@ -158,8 +158,8 @@ class RazorpayService
 
             // In-app Notification
             $this->db->execute(
-                'INSERT INTO notifications (student_id, notification_type, title, message, is_read, created_at)
-                 VALUES (:student_id, "fine_paid", "Fine Paid Successfully", :message, 0, NOW())',
+                "INSERT INTO notifications (student_id, notification_type, title, message, is_read, created_at)
+                 VALUES (:student_id, 'fine_paid', 'Fine Paid Successfully', :message, 0, NOW())",
                 [
                     'student_id' => $studentId,
                     'message' => "Your fine of ₹" . number_format((float)$fine['amount'], 2) . " has been paid via Razorpay.",
