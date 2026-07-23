@@ -100,6 +100,39 @@ try {
             $dbPdo->exec("ALTER TABLE payments ADD COLUMN razorpay_signature VARCHAR(255) DEFAULT NULL");
             $dbPdo->exec("ALTER TABLE payments ADD COLUMN receipt_path VARCHAR(255) DEFAULT NULL");
         }
+
+        // Ensure book_returns table exists and has all required columns
+        $tablesRet = $dbPdo->query("SHOW TABLES LIKE 'book_returns'")->fetchAll();
+        if (empty($tablesRet)) {
+            $dbPdo->exec("CREATE TABLE IF NOT EXISTS book_returns (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                issue_id INT NOT NULL UNIQUE,
+                student_id INT NOT NULL,
+                book_id INT NOT NULL,
+                return_date DATE NOT NULL,
+                return_condition VARCHAR(20) NOT NULL DEFAULT 'Good',
+                rent_charged DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+                late_fine DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+                damage_fine DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+                lost_amount DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+                total_due DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+                payment_mode VARCHAR(20) NOT NULL DEFAULT 'offline',
+                librarian_notes TEXT DEFAULT NULL,
+                created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+        } else {
+            $colsCond = $dbPdo->query("SHOW COLUMNS FROM book_returns LIKE 'return_condition'")->fetchAll();
+            if (empty($colsCond)) {
+                $dbPdo->exec("ALTER TABLE book_returns ADD COLUMN return_condition VARCHAR(20) NOT NULL DEFAULT 'Good'");
+                $dbPdo->exec("ALTER TABLE book_returns ADD COLUMN rent_charged DECIMAL(10,2) NOT NULL DEFAULT 0.00");
+                $dbPdo->exec("ALTER TABLE book_returns ADD COLUMN late_fine DECIMAL(10,2) NOT NULL DEFAULT 0.00");
+                $dbPdo->exec("ALTER TABLE book_returns ADD COLUMN damage_fine DECIMAL(10,2) NOT NULL DEFAULT 0.00");
+                $dbPdo->exec("ALTER TABLE book_returns ADD COLUMN lost_amount DECIMAL(10,2) NOT NULL DEFAULT 0.00");
+                $dbPdo->exec("ALTER TABLE book_returns ADD COLUMN total_due DECIMAL(10,2) NOT NULL DEFAULT 0.00");
+                $dbPdo->exec("ALTER TABLE book_returns ADD COLUMN payment_mode VARCHAR(20) NOT NULL DEFAULT 'offline'");
+                $dbPdo->exec("ALTER TABLE book_returns ADD COLUMN librarian_notes TEXT DEFAULT NULL");
+            }
+        }
     }
 
     $dbPdo->exec("CREATE TABLE IF NOT EXISTS whatsapp_logs (

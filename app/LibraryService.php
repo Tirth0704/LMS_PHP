@@ -610,7 +610,7 @@ class LibraryService
 
     public function issues(array $filters = []): array
     {
-        $sql = 'SELECT bi.*, b.title AS book_title, s.full_name AS student_name, s.enrollment_number
+        $sql = 'SELECT bi.*, b.title AS book_title, b.price, s.full_name AS student_name, s.enrollment_number
                 FROM book_issues bi
                 JOIN books b ON b.id = bi.book_id
                 JOIN students s ON s.id = bi.student_id
