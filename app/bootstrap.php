@@ -66,13 +66,36 @@ $GLOBALS['database'] = new LibraryDatabase($GLOBALS['config']['db']);
 // Auto-migrate missing columns/tables in existing MySQL databases
 try {
     $dbPdo = $GLOBALS['database']->pdo();
-    $cols = $dbPdo->query("SHOW COLUMNS FROM payments LIKE 'razorpay_order_id'")->fetchAll();
-    if (empty($cols)) {
-        $dbPdo->exec("ALTER TABLE payments ADD COLUMN razorpay_order_id VARCHAR(100) DEFAULT NULL");
-        $dbPdo->exec("ALTER TABLE payments ADD COLUMN razorpay_payment_id VARCHAR(100) DEFAULT NULL");
-        $dbPdo->exec("ALTER TABLE payments ADD COLUMN razorpay_signature VARCHAR(255) DEFAULT NULL");
-        $dbPdo->exec("ALTER TABLE payments ADD COLUMN receipt_path VARCHAR(255) DEFAULT NULL");
+
+    // Check if books table exists
+    $tables = $dbPdo->query("SHOW TABLES LIKE 'books'")->fetchAll();
+    if (empty($tables)) {
+        // Run full schema creation if database is fresh/empty
+        $schemaPath = __DIR__ . '/../database/schema.sql';
+        if (file_exists($schemaPath)) {
+            $sql = file_get_contents($schemaPath);
+            // Remove CREATE DATABASE & USE commands so it executes cleanly on any configured db name (e.g. defaultdb)
+            $sql = preg_replace('/CREATE DATABASE[^;]*;/i', '', $sql);
+            $sql = preg_replace('/USE [^;]*;/i', '', $sql);
+            $dbPdo->exec($sql);
+        }
+    } else {
+        // Ensure is_archived column exists in books table
+        $colsBooks = $dbPdo->query("SHOW COLUMNS FROM books LIKE 'is_archived'")->fetchAll();
+        if (empty($colsBooks)) {
+            $dbPdo->exec("ALTER TABLE books ADD COLUMN is_archived TINYINT(1) NOT NULL DEFAULT 0");
+        }
+
+        // Ensure payments table columns exist
+        $colsPay = $dbPdo->query("SHOW COLUMNS FROM payments LIKE 'razorpay_order_id'")->fetchAll();
+        if (empty($colsPay)) {
+            $dbPdo->exec("ALTER TABLE payments ADD COLUMN razorpay_order_id VARCHAR(100) DEFAULT NULL");
+            $dbPdo->exec("ALTER TABLE payments ADD COLUMN razorpay_payment_id VARCHAR(100) DEFAULT NULL");
+            $dbPdo->exec("ALTER TABLE payments ADD COLUMN razorpay_signature VARCHAR(255) DEFAULT NULL");
+            $dbPdo->exec("ALTER TABLE payments ADD COLUMN receipt_path VARCHAR(255) DEFAULT NULL");
+        }
     }
+
     $dbPdo->exec("CREATE TABLE IF NOT EXISTS whatsapp_logs (
         id INT AUTO_INCREMENT PRIMARY KEY,
         student_id INT DEFAULT NULL,
@@ -86,7 +109,7 @@ try {
         CONSTRAINT fk_whatsapp_student FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
 } catch (Throwable $e) {
-    // Gracefully ignore auto-migration errors if database user lacks ALTER permissions
+    // Gracefully handle auto-migration exceptions
 }
 
 $GLOBALS['cloudinary'] = new CloudinaryService($GLOBALS['config']);

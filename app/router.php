@@ -171,11 +171,11 @@ function home_page() {
                     <?= csrf_field() ?>
                     <div class="mb-3">
                         <label class="form-label">Email</label>
-                        <input type="email" name="email" class="form-control" value="admin.lms@gmail.com" required>
+                        <input type="email" name="email" class="form-control" placeholder="admin.lms@gmail.com" required>
                     </div>
                     <div class="mb-3">
                         <label class="form-label">Password</label>
-                        <input type="password" name="password" class="form-control" value="admin@#$123" required>
+                        <input type="password" name="password" class="form-control" placeholder="••••••••" required>
                     </div>
                     <button class="btn btn-dark w-100 py-2 fw-semibold">Login as Librarian</button>
                 </form>
