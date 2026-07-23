@@ -148,6 +148,12 @@ try {
                     try { $dbPdo->exec($alterSql); } catch (Throwable $e) {}
                 }
             }
+
+            // Ensure legacy 'condition' column does not block INSERTs if present on existing databases
+            $colsOldCond = $dbPdo->query("SHOW COLUMNS FROM book_returns LIKE 'condition'")->fetchAll();
+            if (!empty($colsOldCond)) {
+                try { $dbPdo->exec("ALTER TABLE book_returns MODIFY COLUMN `condition` VARCHAR(20) DEFAULT NULL"); } catch (Throwable $e) {}
+            }
         }
     }
 
