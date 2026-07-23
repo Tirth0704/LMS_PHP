@@ -152,9 +152,12 @@ function verify_csrf(): void
     }
 
     $token = $_POST['_csrf'] ?? '';
-    if (!hash_equals($_SESSION['_csrf'] ?? '', (string) $token)) {
-        http_response_code(419);
-        exit('Invalid CSRF token.');
+    if (empty($_SESSION['_csrf']) || !hash_equals($_SESSION['_csrf'], (string) $token)) {
+        flash('danger', 'Security session expired or token mismatch. Please try again.');
+        $fallback = route_url('home');
+        $referer = $_SERVER['HTTP_REFERER'] ?? $fallback;
+        header('Location: ' . $referer);
+        exit;
     }
 }
 
