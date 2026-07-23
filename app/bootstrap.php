@@ -58,6 +58,7 @@ require_once __DIR__ . '/helpers.php';
 require_once __DIR__ . '/CloudinaryService.php';
 require_once __DIR__ . '/WhatsAppService.php';
 require_once __DIR__ . '/RazorpayService.php';
+require_once __DIR__ . '/fpdf.php';
 require_once __DIR__ . '/ReceiptService.php';
 require_once __DIR__ . '/LibraryService.php';
 

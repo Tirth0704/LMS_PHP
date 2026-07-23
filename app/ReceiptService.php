@@ -9,6 +9,97 @@ class ReceiptService
         $this->db = $db;
     }
 
+    public function generatePdfBinary(int $paymentId): ?string
+    {
+        $payment = $this->db->fetch(
+            "SELECT p.*, s.full_name AS student_name, s.enrollment_number, s.department, s.email, f.fine_type, f.description AS fine_description
+             FROM payments p
+             JOIN students s ON s.id = p.student_id
+             LEFT JOIN fines f ON f.id = p.fine_id
+             WHERE p.id = :id AND p.status = 'Completed' LIMIT 1",
+            ['id' => $paymentId]
+        );
+
+        if (!$payment) {
+            return null;
+        }
+
+        $receiptNo = sprintf("RCP-%06d", $payment['id']);
+        $completedAt = date('d M Y H:i', strtotime($payment['completed_at'] ?? $payment['created_at']));
+        $method = ucfirst($payment['payment_method']);
+        $fineType = ucwords(str_replace('_', ' ', $payment['fine_type'] ?? 'General Dues'));
+        $description = $payment['fine_description'] ?: 'Library Fine / Rent Payment';
+        $amount = number_format((float)$payment['amount'], 2);
+
+        $pdf = new FPDF('P', 'mm', 'A4');
+        $pdf->AddPage();
+        $pdf->SetAutoPageBreak(false);
+
+        // Header Indigo Bar
+        $pdf->SetFillColor(79, 70, 229);
+        $pdf->Rect(0, 0, 210, 36, 'F');
+
+        // Header Brand Title
+        $pdf->SetFont('Arial', 'B', 22);
+        $pdf->SetTextColor(255, 255, 255);
+        $pdf->SetXY(15, 8);
+        $pdf->Cell(100, 10, 'LibraryHub', 0, 0, 'L');
+
+        $pdf->SetFont('Arial', 'B', 12);
+        $pdf->SetXY(110, 8);
+        $pdf->Cell(85, 10, 'OFFICIAL PAYMENT RECEIPT', 0, 0, 'R');
+
+        $pdf->SetFont('Arial', '', 9);
+        $pdf->SetXY(15, 18);
+        $pdf->Cell(100, 8, 'Smart Library Resource & Student Platform', 0, 0, 'L');
+
+        $pdf->SetXY(110, 18);
+        $pdf->Cell(85, 8, 'Receipt No: ' . $receiptNo, 0, 0, 'R');
+
+        // Table Header
+        $pdf->SetY(46);
+        $pdf->SetFont('Arial', 'B', 12);
+        $pdf->SetTextColor(31, 41, 55);
+        $pdf->Cell(0, 10, 'Transaction Details Summary', 0, 1, 'L');
+        $pdf->Ln(2);
+
+        // Table Row Generator Helper
+        $addRow = function($label, $value, $isHighlight = false) use ($pdf) {
+            $pdf->SetFont('Arial', 'B', 10);
+            $pdf->SetFillColor(249, 250, 251);
+            $pdf->SetDrawColor(229, 231, 235);
+            $pdf->SetTextColor(75, 85, 99);
+            $pdf->Cell(60, 10, '  ' . $label, 1, 0, 'L', true);
+
+            $pdf->SetFont('Arial', $isHighlight ? 'B' : '', 10);
+            $pdf->SetTextColor($isHighlight ? 17 : 31, $isHighlight ? 24 : 41, $isHighlight ? 39 : 55);
+            $pdf->Cell(120, 10, '  ' . $value, 1, 1, 'L', false);
+        };
+
+        $addRow('Receipt Number', $receiptNo);
+        $addRow('Date & Time', $completedAt);
+        $addRow('Payment Method', $method);
+        $addRow('Student Name', $payment['student_name']);
+        $addRow('Enrollment No.', $payment['enrollment_number']);
+        $addRow('Department', $payment['department']);
+        $addRow('Fine / Due Type', $fineType);
+        $addRow('Description', $description);
+        $addRow('Total Amount Paid', 'INR ' . $amount, true);
+        $addRow('Payment Status', 'PAID (COMPLETED)');
+
+        if (!empty($payment['razorpay_payment_id'])) {
+            $addRow('Razorpay Payment ID', $payment['razorpay_payment_id']);
+        }
+
+        $pdf->Ln(15);
+        $pdf->SetFont('Arial', 'I', 9);
+        $pdf->SetTextColor(156, 163, 175);
+        $pdf->Cell(0, 6, 'This is an official computer-generated receipt issued by LibraryHub System.', 0, 1, 'C');
+        $pdf->Cell(0, 6, 'No physical signature is required. Generated on ' . date('d M Y H:i:s') . ' UTC.', 0, 1, 'C');
+
+        return $pdf->Output('S');
+    }
+
     public function renderReceiptHtml(int $paymentId): ?string
     {
         $payment = $this->db->fetch(

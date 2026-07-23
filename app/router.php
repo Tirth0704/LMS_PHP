@@ -997,14 +997,32 @@ function student_receipts_page() {
 
 function receipt_pdf_page() {
     $id = (int)($_GET['id'] ?? 0);
-    $html = receipt_service()->renderReceiptHtml($id);
+    $format = trim($_GET['format'] ?? 'pdf');
 
-    if (!$html) {
+    if ($format === 'html') {
+        $html = receipt_service()->renderReceiptHtml($id);
+        if (!$html) {
+            http_response_code(404);
+            exit('Receipt not found.');
+        }
+        header('Content-Type: text/html; charset=UTF-8');
+        echo $html;
+        exit;
+    }
+
+    $pdfBinary = receipt_service()->generatePdfBinary($id);
+    if (!$pdfBinary) {
         http_response_code(404);
         exit('Receipt not found.');
     }
 
-    echo $html;
+    $filename = sprintf("Receipt-RCP-%06d.pdf", $id);
+    header('Content-Type: application/pdf');
+    header('Content-Disposition: inline; filename="' . $filename . '"');
+    header('Content-Length: ' . strlen($pdfBinary));
+    header('Cache-Control: private, max-age=0, must-revalidate');
+    header('Pragma: public');
+    echo $pdfBinary;
     exit;
 }
 
