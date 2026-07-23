@@ -166,19 +166,22 @@ function home_page() {
         </div>
         <div class="col-lg-5">
             <div class="card border-0 shadow-lg p-4 rounded-4 bg-white">
-                <h3 class="h5 fw-bold mb-3">Librarian Direct Login</h3>
+                <h3 class="h5 fw-bold mb-3">Library Portal Access</h3>
                 <form method="post" action="<?= esc(route_url('login')) ?>">
                     <?= csrf_field() ?>
                     <div class="mb-3">
-                        <label class="form-label">Email</label>
-                        <input type="email" name="email" class="form-control" placeholder="admin.lms@gmail.com" required>
+                        <label class="form-label">Email Address</label>
+                        <input type="email" name="email" class="form-control" placeholder="user@university.edu" required>
                     </div>
                     <div class="mb-3">
                         <label class="form-label">Password</label>
-                        <input type="password" name="password" class="form-control" placeholder="••••••••" required>
+                        <input type="password" name="password" class="form-control" placeholder="Enter password" required>
                     </div>
-                    <button class="btn btn-dark w-100 py-2 fw-semibold">Login as Librarian</button>
+                    <button class="btn btn-primary w-100 py-2 fw-semibold mb-3">Sign In</button>
                 </form>
+                <div class="text-center border-top pt-3">
+                    <span class="small text-muted">New student? <a href="<?= esc(route_url('register')) ?>" class="fw-semibold">Create an account</a></span>
+                </div>
             </div>
         </div>
     </div>
