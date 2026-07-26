@@ -55,7 +55,7 @@ class WhatsAppService
             curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query($postData));
             curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
             curl_setopt($ch, CURLOPT_USERPWD, "{$accountSid}:{$authToken}");
-            curl_setopt($ch, CURLOPT_TIMEOUT, 10);
+            curl_setopt($ch, CURLOPT_TIMEOUT, 30);
             curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
 
             $response = curl_exec($ch);
@@ -71,11 +71,15 @@ class WhatsAppService
                     $status = 'sent';
                     $twilioSid = $json['sid'];
                 } else {
-                    $errorMessage = $json['message'] ?? "Twilio HTTP Code: {$httpCode}";
+                    $errorMessage = ($json['message'] ?? "Twilio HTTP Code: {$httpCode}") . (isset($json['code']) ? " (Twilio Error {$json['code']})" : '');
                 }
             }
         } else {
             $errorMessage = "Twilio credentials not configured or phone number empty.";
+        }
+
+        if ($status !== 'sent') {
+            error_log("WhatsApp API Error ({$eventType}): {$errorMessage}");
         }
 
         // Log to database
@@ -167,11 +171,13 @@ class WhatsAppService
                     $baseUrl = rtrim(getenv('APP_BASE_URL') ?: '', '/');
                     $isLocal = preg_match('/localhost|127\.0\.0\.1|0\.0\.0\.0/i', $baseUrl);
 
-                    if (!$isLocal && str_starts_with($baseUrl, 'https://')) {
-                        $mediaUrl = "{$baseUrl}/receipt-pdf/{$paymentId}.pdf";
+                    if (!$isLocal && !empty($baseUrl)) {
+                        if (!str_starts_with($baseUrl, 'http://') && !str_starts_with($baseUrl, 'https://')) {
+                            $baseUrl = 'https://' . $baseUrl;
+                        }
+                        $mediaUrl = "{$baseUrl}/receipt-pdf/{$paymentId}";
                     } else {
-                        // Default to deployed production HTTPS endpoint
-                        $mediaUrl = "https://lms-php-qani.onrender.com/receipt-pdf/{$paymentId}.pdf";
+                        $mediaUrl = "https://lms-php-qani.onrender.com/receipt-pdf/{$paymentId}";
                     }
                 }
             } catch (Throwable $e) {

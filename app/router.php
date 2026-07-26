@@ -1005,6 +1005,7 @@ function receipt_pdf_page() {
             http_response_code(404);
             exit('Receipt not found.');
         }
+        while (ob_get_level()) { ob_end_clean(); }
         header('Content-Type: text/html; charset=UTF-8');
         echo $html;
         exit;
@@ -1017,6 +1018,7 @@ function receipt_pdf_page() {
     }
 
     $filename = sprintf("Receipt-RCP-%06d.pdf", $id);
+    while (ob_get_level()) { ob_end_clean(); }
     header('Content-Type: application/pdf');
     header('Content-Disposition: inline; filename="' . $filename . '"');
     header('Content-Length: ' . strlen($pdfBinary));
