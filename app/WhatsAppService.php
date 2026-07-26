@@ -151,26 +151,35 @@ class WhatsAppService
         $name = esc($student['full_name'] ?? 'Student');
         $formattedAmount = number_format($amount, 2);
         $method = ucfirst($paymentMethod);
-        
-        $receiptUrl = null;
+
         $mediaUrl = null;
 
         if ($paymentId) {
-            $pdfUrl = receipt_service()->ensurePdfFile($paymentId);
-            if ($pdfUrl) {
-                $receiptUrl = $pdfUrl;
-                $mediaUrl = $pdfUrl;
-            } else {
-                $receiptUrl = route_url('receipt-pdf', ['id' => $paymentId]);
-                $mediaUrl = $receiptUrl;
+            try {
+                if (function_exists('cloudinary') && cloudinary()->isConfigured()) {
+                    $mediaUrl = receipt_service()->ensurePdfFile($paymentId);
+                } else {
+                    $baseUrl = rtrim(getenv('APP_BASE_URL') ?: '', '/');
+                    if ($baseUrl === '' || preg_match('/localhost|127\.0\.0\.1|0\.0\.0\.0/', $baseUrl)) {
+                        $baseUrl = 'https://lms-php-qani.onrender.com';
+                    }
+                    $mediaUrl = "{$baseUrl}/receipt-pdf/{$paymentId}.pdf";
+                }
+            } catch (Throwable $e) {
+                // Never crash payment on WhatsApp URL failure
             }
         }
 
         $msg = "Hello {$name},\n\n"
-             . "🧾 *Payment Confirmation Receipt*\n\n"
-             . "✅ Your payment of *₹{$formattedAmount}* has been confirmed via {$method}.\n\n"
-             . "📎 Attached is your official PDF payment receipt.\n\n"
-             . "Thank you for using LibraryHub!\n\n— LibraryHub";
+             . "✅ Your payment of *₹{$formattedAmount}* has been confirmed via {$method}.\n";
+
+        if ($mediaUrl) {
+            $msg .= "Your digital payment receipt is attached below.\n\n";
+        } else {
+            $msg .= "You can download your receipt from the LibraryHub dashboard.\n\n";
+        }
+
+        $msg .= "— LibraryHub";
 
         return $this->sendWhatsApp((int)$student['id'], $student['phone_number'], 'fine_paid', $msg, $mediaUrl);
     }
