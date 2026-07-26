@@ -21,6 +21,8 @@ Thumbs.db
 *.log
 scratch/
 test_whatsapp_receipt.php
+reset_aiven_db.php
 fpdf_temp/
+
 
 

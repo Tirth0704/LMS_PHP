@@ -13,7 +13,9 @@ class WhatsAppService
 
     private function formatWhatsAppNumber(string $phone): string
     {
-        $phone = str_replace(' ', '', trim($phone));
+        $phone = trim($phone);
+        $phone = preg_replace('/^whatsapp:/i', '', $phone) ?? $phone;
+        $phone = preg_replace('/[\s\-()]/', '', $phone) ?? $phone;
         if ($phone === '') {
             return '';
         }
@@ -85,13 +87,14 @@ class WhatsAppService
         // Log to database
         try {
             $this->db->execute(
-                'INSERT INTO whatsapp_logs (student_id, event_type, to_number, message_body, status, twilio_sid, error_message, created_at)
-                 VALUES (:student_id, :event_type, :to_number, :message_body, :status, :twilio_sid, :error_message, NOW())',
+                'INSERT INTO whatsapp_logs (student_id, event_type, to_number, message_body, media_url, status, twilio_sid, error_message, created_at)
+                 VALUES (:student_id, :event_type, :to_number, :message_body, :media_url, :status, :twilio_sid, :error_message, NOW())',
                 [
                     'student_id' => $studentId,
                     'event_type' => $eventType,
                     'to_number' => $to,
                     'message_body' => $messageBody,
+                    'media_url' => $mediaUrl,
                     'status' => $status,
                     'twilio_sid' => $twilioSid,
                     'error_message' => $errorMessage,
@@ -160,26 +163,16 @@ class WhatsAppService
 
         if ($paymentId) {
             try {
-                if (function_exists('cloudinary') && cloudinary()->isConfigured()) {
-                    $cUrl = receipt_service()->ensurePdfFile($paymentId);
-                    if ($cUrl && (str_starts_with($cUrl, 'https://') || str_starts_with($cUrl, 'http://'))) {
-                        $mediaUrl = $cUrl;
-                    }
+                $baseUrl = trim((string) app_config('base_url', getenv('APP_BASE_URL') ?: ''));
+                $isLocal = $baseUrl === '' || preg_match('/localhost|127\.0\.0\.1|0\.0\.0\.0/i', $baseUrl);
+
+                if ($isLocal) {
+                    $baseUrl = 'https://lms-php-qani.onrender.com';
+                } elseif (!str_starts_with($baseUrl, 'http://') && !str_starts_with($baseUrl, 'https://')) {
+                    $baseUrl = 'https://' . $baseUrl;
                 }
 
-                if (!$mediaUrl) {
-                    $baseUrl = rtrim(getenv('APP_BASE_URL') ?: '', '/');
-                    $isLocal = preg_match('/localhost|127\.0\.0\.1|0\.0\.0\.0/i', $baseUrl);
-
-                    if (!$isLocal && !empty($baseUrl)) {
-                        if (!str_starts_with($baseUrl, 'http://') && !str_starts_with($baseUrl, 'https://')) {
-                            $baseUrl = 'https://' . $baseUrl;
-                        }
-                        $mediaUrl = "{$baseUrl}/receipt-pdf/{$paymentId}";
-                    } else {
-                        $mediaUrl = "https://lms-php-qani.onrender.com/receipt-pdf/{$paymentId}";
-                    }
-                }
+                $mediaUrl = rtrim($baseUrl, '/') . "/receipt-pdf/{$paymentId}";
             } catch (Throwable $e) {
                 // Never crash payment on WhatsApp URL resolution failure
             }

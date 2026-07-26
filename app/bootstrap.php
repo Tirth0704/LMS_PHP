@@ -164,12 +164,23 @@ try {
         event_type VARCHAR(50) NOT NULL,
         to_number VARCHAR(30) NOT NULL,
         message_body TEXT NOT NULL,
+        media_url TEXT DEFAULT NULL,
         status VARCHAR(20) NOT NULL DEFAULT 'sent',
         twilio_sid VARCHAR(100) DEFAULT NULL,
         error_message TEXT DEFAULT NULL,
         created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
         CONSTRAINT fk_whatsapp_student FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+
+    $whatsappCols = [
+        'media_url' => "ALTER TABLE whatsapp_logs ADD COLUMN media_url TEXT DEFAULT NULL",
+    ];
+    foreach ($whatsappCols as $colName => $alterSql) {
+        $colExists = $dbPdo->query("SHOW COLUMNS FROM whatsapp_logs LIKE '{$colName}'")->fetchAll();
+        if (empty($colExists)) {
+            try { $dbPdo->exec($alterSql); } catch (Throwable $e) {}
+        }
+    }
 } catch (Throwable $e) {
     // Gracefully handle auto-migration exceptions
 }

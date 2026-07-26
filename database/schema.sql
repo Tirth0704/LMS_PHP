@@ -147,6 +147,7 @@ CREATE TABLE whatsapp_logs (
     event_type VARCHAR(50) NOT NULL,
     to_number VARCHAR(30) NOT NULL,
     message_body TEXT NOT NULL,
+    media_url TEXT DEFAULT NULL,
     status VARCHAR(20) NOT NULL DEFAULT 'sent',
     twilio_sid VARCHAR(100) DEFAULT NULL,
     error_message TEXT DEFAULT NULL,
