@@ -157,16 +157,25 @@ class WhatsAppService
         if ($paymentId) {
             try {
                 if (function_exists('cloudinary') && cloudinary()->isConfigured()) {
-                    $mediaUrl = receipt_service()->ensurePdfFile($paymentId);
-                } else {
-                    $baseUrl = rtrim(getenv('APP_BASE_URL') ?: '', '/');
-                    if ($baseUrl === '' || preg_match('/localhost|127\.0\.0\.1|0\.0\.0\.0/', $baseUrl)) {
-                        $baseUrl = 'https://lms-php-qani.onrender.com';
+                    $cUrl = receipt_service()->ensurePdfFile($paymentId);
+                    if ($cUrl && (str_starts_with($cUrl, 'https://') || str_starts_with($cUrl, 'http://'))) {
+                        $mediaUrl = $cUrl;
                     }
-                    $mediaUrl = "{$baseUrl}/receipt-pdf/{$paymentId}.pdf";
+                }
+
+                if (!$mediaUrl) {
+                    $baseUrl = rtrim(getenv('APP_BASE_URL') ?: '', '/');
+                    $isLocal = preg_match('/localhost|127\.0\.0\.1|0\.0\.0\.0/i', $baseUrl);
+
+                    if (!$isLocal && str_starts_with($baseUrl, 'https://')) {
+                        $mediaUrl = "{$baseUrl}/receipt-pdf/{$paymentId}.pdf";
+                    } else {
+                        // Default to deployed production HTTPS endpoint
+                        $mediaUrl = "https://lms-php-qani.onrender.com/receipt-pdf/{$paymentId}.pdf";
+                    }
                 }
             } catch (Throwable $e) {
-                // Never crash payment on WhatsApp URL failure
+                // Never crash payment on WhatsApp URL resolution failure
             }
         }
 
@@ -181,7 +190,18 @@ class WhatsAppService
 
         $msg .= "— LibraryHub";
 
-        return $this->sendWhatsApp((int)$student['id'], $student['phone_number'], 'fine_paid', $msg, $mediaUrl);
+        $res = $this->sendWhatsApp((int)$student['id'], $student['phone_number'], 'fine_paid', $msg, $mediaUrl);
+
+        // Fallback: If Twilio failed due to media URL error, retry sending without mediaUrl so the message is guaranteed to deliver
+        if (!$res['ok'] && $mediaUrl) {
+            $fallbackMsg = "Hello {$name},\n\n"
+                         . "✅ Your payment of *₹{$formattedAmount}* has been confirmed via {$method}.\n"
+                         . "You can download your receipt from the LibraryHub dashboard.\n\n"
+                         . "— LibraryHub";
+            return $this->sendWhatsApp((int)$student['id'], $student['phone_number'], 'fine_paid', $fallbackMsg, null);
+        }
+
+        return $res;
     }
 
     public function sendBookReturned(array $student, string $bookTitle, string $condition, float $totalDue): array
