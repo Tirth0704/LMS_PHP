@@ -15,32 +15,48 @@ class ReceiptService
         if (!is_dir($dir)) {
             @mkdir($dir, 0777, true);
         }
+
         $filePath = $dir . "/receipt-{$paymentId}.pdf";
 
         if (!file_exists($filePath)) {
             $pdfBinary = $this->generatePdfBinary($paymentId);
             if ($pdfBinary) {
-                file_put_contents($filePath, $pdfBinary);
+                if (is_dir($dir) || @mkdir($dir, 0777, true)) {
+                    @file_put_contents($filePath, $pdfBinary);
+                }
             }
         }
 
-        if (!file_exists($filePath)) {
-            return null;
+        if (file_exists($filePath)) {
+            if (function_exists('cloudinary') && cloudinary()->isConfigured()) {
+                $cloudinaryUrl = cloudinary()->uploadFile($filePath, "receipt-{$paymentId}");
+                if ($cloudinaryUrl) {
+                    return $cloudinaryUrl;
+                }
+            }
+
+            $baseUrl = rtrim(getenv('APP_BASE_URL') ?: '', '/');
+            if ($baseUrl === '' || preg_match('/localhost|127\.0\.0\.1/', $baseUrl)) {
+                $baseUrl = 'https://lms-php-qani.onrender.com';
+            }
+
+            return $baseUrl . "/receipts/receipt-{$paymentId}.pdf";
         }
 
+        // Fallback if writing to public/receipts failed: upload temp file to Cloudinary or return route URL
         if (function_exists('cloudinary') && cloudinary()->isConfigured()) {
-            $cloudinaryUrl = cloudinary()->uploadFile($filePath, "receipt-{$paymentId}");
-            if ($cloudinaryUrl) {
-                return $cloudinaryUrl;
+            $tmpFile = tempnam(sys_get_temp_dir(), 'rcpt_') . '.pdf';
+            $pdfBinary = $pdfBinary ?? $this->generatePdfBinary($paymentId);
+            if ($pdfBinary && @file_put_contents($tmpFile, $pdfBinary)) {
+                $cloudinaryUrl = cloudinary()->uploadFile($tmpFile, "receipt-{$paymentId}");
+                @unlink($tmpFile);
+                if ($cloudinaryUrl) {
+                    return $cloudinaryUrl;
+                }
             }
         }
 
-        $baseUrl = rtrim(getenv('APP_BASE_URL') ?: '', '/');
-        if ($baseUrl === '' || preg_match('/localhost|127\.0\.0\.1/', $baseUrl)) {
-            $baseUrl = 'https://lms-php-qani.onrender.com';
-        }
-
-        return $baseUrl . "/receipts/receipt-{$paymentId}.pdf";
+        return route_url('receipt-pdf', ['id' => $paymentId]);
     }
 
     public function generatePdfBinary(int $paymentId): ?string
