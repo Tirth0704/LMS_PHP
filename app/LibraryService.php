@@ -191,8 +191,11 @@ class LibraryService
         $params = [];
 
         if (!empty($filters['q'])) {
-            $sql .= ' AND (b.title LIKE :q OR b.author LIKE :q)';
-            $params['q'] = '%' . $filters['q'] . '%';
+            $sql .= ' AND (b.title LIKE :q1 OR b.author LIKE :q2 OR b.publisher LIKE :q3)';
+            $searchTerm = '%' . $filters['q'] . '%';
+            $params['q1'] = $searchTerm;
+            $params['q2'] = $searchTerm;
+            $params['q3'] = $searchTerm;
         }
 
         if (!empty($filters['category_id'])) {
@@ -204,7 +207,26 @@ class LibraryService
             $sql .= ' AND b.available_copies > 0';
         }
 
-        $sql .= ' ORDER BY b.added_date DESC, b.title ASC';
+        $sort = $filters['sort'] ?? 'newest';
+        switch ($sort) {
+            case 'title_asc':
+                $sql .= ' ORDER BY b.title ASC';
+                break;
+            case 'title_desc':
+                $sql .= ' ORDER BY b.title DESC';
+                break;
+            case 'price_asc':
+                $sql .= ' ORDER BY b.price ASC, b.title ASC';
+                break;
+            case 'price_desc':
+                $sql .= ' ORDER BY b.price DESC, b.title ASC';
+                break;
+            case 'newest':
+            default:
+                $sql .= ' ORDER BY b.added_date DESC, b.id DESC';
+                break;
+        }
+
         return $this->q($sql, $params);
     }
 
@@ -455,30 +477,41 @@ class LibraryService
 
     public function cancelRequest(int $requestId, int $studentId): array
     {
-        $request = $this->one('SELECT * FROM book_requests WHERE id = :id AND student_id = :student_id LIMIT 1', [
-            'id' => $requestId,
-            'student_id' => $studentId,
-        ]);
+        return $this->transaction(function () use ($requestId, $studentId) {
+            $request = $this->one('SELECT * FROM book_requests WHERE id = :id AND student_id = :student_id FOR UPDATE', [
+                'id' => $requestId,
+                'student_id' => $studentId,
+            ]);
 
-        if (!$request) {
-            return ['ok' => false, 'message' => 'Request not found.'];
-        }
+            if (!$request) {
+                return ['ok' => false, 'message' => 'Request not found.'];
+            }
 
-        if ($request['status'] === 'Pending') {
-            $this->exec("UPDATE book_requests SET status = 'Cancelled', updated_at = NOW() WHERE id = :id", ['id' => $requestId]);
-            return ['ok' => true, 'message' => 'Request cancelled successfully.'];
-        }
+            if ($request['status'] === 'Pending') {
+                $this->exec("UPDATE book_requests SET status = 'Cancelled', updated_at = NOW() WHERE id = :id", ['id' => $requestId]);
+                return ['ok' => true, 'message' => 'Request cancelled successfully.'];
+            }
 
-        if ($request['status'] === 'Approved') {
-            $book = $this->bookById((int) $request['book_id']);
-            $student = $this->studentById($studentId);
-            $this->adjustScore($studentId, (int) app_config('business.score_cancelled_approved', -3), 'cancelled_approved', 'Approved request was cancelled.');
-            $this->exec("UPDATE book_requests SET status = 'Cancelled', updated_at = NOW() WHERE id = :id", ['id' => $requestId]);
-            $this->logActivity('student', $studentId, 'book_request', $requestId, 'cancelled_approved_request', 'Approved request was cancelled.');
-            return ['ok' => true, 'message' => 'Approved request cancelled. Behaviour score updated.'];
-        }
+            if ($request['status'] === 'Approved') {
+                $bookId = (int) $request['book_id'];
+                $issue = $this->one('SELECT * FROM book_issues WHERE request_id = :request_id AND student_id = :student_id AND is_returned = 0 AND is_lost = 0 LIMIT 1 FOR UPDATE', [
+                    'request_id' => $requestId,
+                    'student_id' => $studentId,
+                ]);
 
-        return ['ok' => false, 'message' => 'This request cannot be cancelled.'];
+                if ($issue) {
+                    $this->exec("UPDATE book_issues SET status = 'Cancelled', is_returned = 1, updated_at = NOW() WHERE id = :id", ['id' => $issue['id']]);
+                    $this->exec("UPDATE books SET available_copies = LEAST(available_copies + 1, total_copies), issued_copies = GREATEST(issued_copies - 1, 0), status = 'Available', updated_at = NOW() WHERE id = :id", ['id' => $bookId]);
+                }
+
+                $this->adjustScore($studentId, (int) app_config('business.score_cancelled_approved', -3), 'cancelled_approved', 'Approved request was cancelled.');
+                $this->exec("UPDATE book_requests SET status = 'Cancelled', updated_at = NOW() WHERE id = :id", ['id' => $requestId]);
+                $this->logActivity('student', $studentId, 'book_request', $requestId, 'cancelled_approved_request', 'Approved request was cancelled and book returned to inventory.');
+                return ['ok' => true, 'message' => 'Approved request cancelled and book returned to inventory. Behaviour score updated.'];
+            }
+
+            return ['ok' => false, 'message' => 'This request cannot be cancelled.'];
+        });
     }
 
     public function approveRequest(int $requestId, string $issueDate): array
@@ -864,9 +897,12 @@ class LibraryService
             );
             $returnId = $this->db->lastInsertId();
 
+            $fineStatus = ($paymentMode === 'offline' || $totalDue <= 0) ? 'Paid' : 'Unpaid';
+            $paidAt = $fineStatus === 'Paid' ? date('Y-m-d H:i:s') : null;
+
             $this->exec(
                 "INSERT INTO fines (student_id, issue_id, fine_type, amount, description, status, created_at, paid_at)
-                 VALUES (:student_id, :issue_id, :fine_type, :amount, :description, 'Unpaid', NOW(), NULL)",
+                 VALUES (:student_id, :issue_id, :fine_type, :amount, :description, :status, NOW(), :paid_at)",
                 [
                     'student_id' => $studentId,
                     'issue_id' => $issueId,
@@ -875,6 +911,8 @@ class LibraryService
                     'description' => $condition === 'Lost'
                         ? 'Lost book fine for ' . $issue['book_title']
                         : 'Return charge for ' . $issue['book_title'],
+                    'status' => $fineStatus,
+                    'paid_at' => $paidAt,
                 ]
             );
             $fineId = $this->db->lastInsertId();
@@ -924,7 +962,7 @@ class LibraryService
 
             $this->adjustScore($studentId, $behaviourChange, 'return_processed', $condition . ' return processed.');
 
-            $paymentStatus = $paymentMode === 'offline' ? 'Completed' : 'Pending';
+            $paymentStatus = ($paymentMode === 'offline' || $totalDue <= 0) ? 'Completed' : 'Pending';
             $paymentId = $this->createPayment(
                 $studentId,
                 $fineId,
@@ -934,9 +972,10 @@ class LibraryService
                 'RET-' . $returnId
             );
 
-            if ($paymentMode === 'offline') {
-                $this->markFinePaid($fineId);
-                $this->adjustScore($studentId, (int) app_config('business.score_paid_fine_immediately', 2), 'paid_fine_immediately', 'Payment completed offline.');
+            if ($paymentMode === 'offline' || $totalDue <= 0) {
+                if ($totalDue > 0) {
+                    $this->adjustScore($studentId, (int) app_config('business.score_paid_fine_immediately', 2), 'paid_fine_immediately', 'Payment completed offline.');
+                }
             } else {
                 $this->createNotification(
                     $studentId,

@@ -13,6 +13,20 @@ $issues = db()->fetchAll(
 
 $count = 0;
 foreach ($issues as $issue) {
+    // Check if overdue notice was already sent today for this student & book to prevent duplicate notifications
+    $alreadySent = db()->fetchValue(
+        "SELECT id FROM notifications 
+         WHERE student_id = :sid AND notification_type = 'overdue_notice' AND DATE(created_at) = CURDATE() AND message LIKE :pattern LIMIT 1",
+        [
+            'sid' => (int) $issue['student_id'],
+            'pattern' => '%' . $issue['book_title'] . '%',
+        ]
+    );
+
+    if ($alreadySent) {
+        continue;
+    }
+
     // 1. Create in-app notification
     library()->createNotification(
         (int) $issue['student_id'],

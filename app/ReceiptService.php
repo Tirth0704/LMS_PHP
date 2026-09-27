@@ -114,16 +114,25 @@ class ReceiptService
         $pdf->Ln(2);
 
         // Table Row Generator Helper
-        $addRow = function($label, $value, $isHighlight = false) use ($pdf) {
+        $cleanPdfText = function($str) {
+            $str = (string) $str;
+            if (function_exists('iconv')) {
+                $converted = @iconv('UTF-8', 'windows-1252//TRANSLIT//IGNORE', $str);
+                if ($converted !== false) return $converted;
+            }
+            return mb_convert_encoding($str, 'ISO-8859-1', 'UTF-8');
+        };
+
+        $addRow = function($label, $value, $isHighlight = false) use ($pdf, $cleanPdfText) {
             $pdf->SetFont('Arial', 'B', 10);
             $pdf->SetFillColor(249, 250, 251);
             $pdf->SetDrawColor(229, 231, 235);
             $pdf->SetTextColor(75, 85, 99);
-            $pdf->Cell(60, 10, '  ' . $label, 1, 0, 'L', true);
+            $pdf->Cell(60, 10, '  ' . $cleanPdfText($label), 1, 0, 'L', true);
 
             $pdf->SetFont('Arial', $isHighlight ? 'B' : '', 10);
             $pdf->SetTextColor($isHighlight ? 17 : 31, $isHighlight ? 24 : 41, $isHighlight ? 39 : 55);
-            $pdf->Cell(120, 10, '  ' . $value, 1, 1, 'L', false);
+            $pdf->Cell(120, 10, '  ' . $cleanPdfText($value), 1, 1, 'L', false);
         };
 
         $addRow('Receipt Number', $receiptNo);

@@ -24,6 +24,11 @@ switch ($route) {
         student_profile_page();
         break;
     case 'books':
+    case 'search':
+    case 'search-books':
+    case 'books/search':
+    case 'student/books':
+    case 'student/search':
         books_page();
         break;
     case 'book/view':
@@ -199,6 +204,7 @@ function login_page() {
         $password = (string) ($_POST['password'] ?? '');
 
         if (library()->authenticateLibrarian($email, $password)) {
+            session_regenerate_id(true);
             $_SESSION['librarian_logged_in'] = true;
             $_SESSION['librarian_email'] = $email;
             library()->logActivity('librarian', null, null, null, 'login', 'Librarian logged in.');
@@ -208,6 +214,7 @@ function login_page() {
 
         $student = library()->authenticateStudent($email, $password);
         if ($student) {
+            session_regenerate_id(true);
             $_SESSION['student'] = $student;
             library()->logActivity('student', (int)$student['id'], 'student', (int)$student['id'], 'login', 'Student logged in.');
             flash('success', 'Welcome back, ' . $student['full_name'] . '.');
@@ -514,67 +521,184 @@ function student_profile_page() {
 }
 
 function books_page() {
-    require_student();
     $q = trim($_GET['q'] ?? '');
     $catId = !empty($_GET['category_id']) ? (int)$_GET['category_id'] : null;
+    $availableOnly = !empty($_GET['available_only']) ? 1 : 0;
+    $sort = trim($_GET['sort'] ?? 'newest');
 
-    $books = library()->books(['q' => $q, 'category_id' => $catId]);
+    $books = library()->books([
+        'q' => $q,
+        'category_id' => $catId,
+        'available_only' => $availableOnly,
+        'sort' => $sort,
+    ]);
     $categories = library()->categories();
+    $totalFound = count($books);
 
     ob_start();
     ?>
-    <form class="row g-2 mb-4" method="get">
-        <input type="hidden" name="route" value="books">
-        <div class="col-md-6">
-            <input type="text" name="q" class="form-control" value="<?= esc($q) ?>" placeholder="Search by title, author, or publisher...">
-        </div>
-        <div class="col-md-4">
-            <select name="category_id" class="form-select">
-                <option value="">All Categories</option>
-                <?php foreach ($categories as $c): ?>
-                    <option value="<?= (int)$c['id'] ?>" <?= $catId === (int)$c['id'] ? 'selected' : '' ?>><?= esc($c['name']) ?></option>
-                <?php endforeach; ?>
-            </select>
-        </div>
-        <div class="col-md-2">
-            <button class="btn btn-primary w-100">Search</button>
-        </div>
-    </form>
+    <div class="mb-4">
+        <div class="card border-0 shadow-sm rounded-4 p-4 bg-white">
+            <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-3">
+                <div>
+                    <h2 class="h4 fw-bold mb-1 text-dark"><i class="bi bi-search text-primary me-2"></i>Search & Browse Books</h2>
+                    <p class="text-muted small mb-0">Explore the library collection, check real-time stock, and borrow books instantly.</p>
+                </div>
+                <div>
+                    <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-3 py-2 rounded-pill fw-semibold">
+                        <?= $totalFound ?> Book<?= $totalFound === 1 ? '' : 's' ?> Found
+                    </span>
+                </div>
+            </div>
 
-    <div class="table-responsive bg-white rounded-3 shadow-sm">
-        <table class="table table-hover align-middle mb-0">
-            <thead class="table-light">
-                <tr>
-                    <th>Title</th>
-                    <th>Author</th>
-                    <th>Category</th>
-                    <th>Price</th>
-                    <th>Available Copies</th>
-                    <th>Action</th>
-                </tr>
-            </thead>
-            <tbody>
-                <?php if (empty($books)): ?>
-                    <tr><td colspan="6" class="text-center text-muted py-4">No books found matching your criteria.</td></tr>
-                <?php else: ?>
-                    <?php foreach ($books as $b): ?>
-                        <tr>
-                            <td class="fw-bold"><?= esc($b['title']) ?></td>
-                            <td><?= esc($b['author']) ?></td>
-                            <td><span class="badge bg-light text-dark border"><?= esc($b['category_name'] ?? 'Uncategorized') ?></span></td>
-                            <td><?= money($b['price']) ?></td>
-                            <td><?= (int)$b['available_copies'] ?> / <?= (int)$b['total_copies'] ?></td>
-                            <td>
-                                <a href="<?= esc(route_url('book/view', ['id' => $b['id']])) ?>" class="btn btn-sm btn-outline-primary">View & Request</a>
-                            </td>
-                        </tr>
-                    <?php endforeach; ?>
-                <?php endif; ?>
-            </tbody>
-        </table>
+            <!-- Search Filter Form -->
+            <form class="row g-3" method="get" action="<?= esc(route_url('books')) ?>">
+                <input type="hidden" name="route" value="books">
+                
+                <div class="col-lg-5 col-md-6">
+                    <label class="form-label small fw-semibold text-secondary">Search Query</label>
+                    <div class="input-group">
+                        <span class="input-group-text bg-light border-end-0"><i class="bi bi-search text-muted"></i></span>
+                        <input type="text" name="q" class="form-control border-start-0" value="<?= esc($q) ?>" placeholder="Search title, author, or publisher...">
+                    </div>
+                </div>
+
+                <div class="col-lg-3 col-md-6">
+                    <label class="form-label small fw-semibold text-secondary">Category</label>
+                    <select name="category_id" class="form-select">
+                        <option value="">All Categories</option>
+                        <?php foreach ($categories as $c): ?>
+                            <option value="<?= (int)$c['id'] ?>" <?= $catId === (int)$c['id'] ? 'selected' : '' ?>><?= esc($c['name']) ?> (<?= (int)$c['book_count'] ?>)</option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+
+                <div class="col-lg-2 col-md-6">
+                    <label class="form-label small fw-semibold text-secondary">Sort By</label>
+                    <select name="sort" class="form-select">
+                        <option value="newest" <?= $sort === 'newest' ? 'selected' : '' ?>>Newest First</option>
+                        <option value="title_asc" <?= $sort === 'title_asc' ? 'selected' : '' ?>>Title (A to Z)</option>
+                        <option value="title_desc" <?= $sort === 'title_desc' ? 'selected' : '' ?>>Title (Z to A)</option>
+                        <option value="price_asc" <?= $sort === 'price_asc' ? 'selected' : '' ?>>Price (Low to High)</option>
+                        <option value="price_desc" <?= $sort === 'price_desc' ? 'selected' : '' ?>>Price (High to Low)</option>
+                    </select>
+                </div>
+
+                <div class="col-lg-2 col-md-6 d-flex align-items-end">
+                    <div class="d-flex gap-2 w-100">
+                        <button type="submit" class="btn btn-primary fw-semibold flex-grow-1"><i class="bi bi-funnel-fill me-1"></i> Filter</button>
+                        <?php if ($q !== '' || $catId !== null || $availableOnly || $sort !== 'newest'): ?>
+                            <a href="<?= esc(route_url('books')) ?>" class="btn btn-outline-secondary" title="Clear Filters"><i class="bi bi-x-lg"></i></a>
+                        <?php endif; ?>
+                    </div>
+                </div>
+
+                <div class="col-12 mt-2">
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" name="available_only" value="1" id="availSwitch" <?= $availableOnly ? 'checked' : '' ?> onchange="this.form.submit()">
+                        <label class="form-check-label small text-secondary fw-semibold" for="availSwitch">Show Available / In-Stock Books Only</label>
+                    </div>
+                </div>
+            </form>
+        </div>
     </div>
+
+    <!-- Active Filters Summary -->
+    <?php if ($q !== '' || $catId !== null || $availableOnly): ?>
+        <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
+            <span class="small text-muted fw-semibold">Active filters:</span>
+            <?php if ($q !== ''): ?>
+                <span class="badge bg-light text-dark border px-2 py-1">Keyword: "<?= esc($q) ?>"</span>
+            <?php endif; ?>
+            <?php if ($catId !== null): ?>
+                <?php 
+                $activeCatName = 'Selected Category';
+                foreach ($categories as $c) { if ((int)$c['id'] === $catId) $activeCatName = $c['name']; }
+                ?>
+                <span class="badge bg-light text-dark border px-2 py-1">Category: <?= esc($activeCatName) ?></span>
+            <?php endif; ?>
+            <?php if ($availableOnly): ?>
+                <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1">In Stock Only</span>
+            <?php endif; ?>
+            <a href="<?= esc(route_url('books')) ?>" class="small text-danger text-decoration-none ms-2"><i class="bi bi-x-circle me-1"></i>Reset all</a>
+        </div>
+    <?php endif; ?>
+
+    <!-- Books Grid Results -->
+    <?php if (empty($books)): ?>
+        <div class="card border-0 shadow-sm rounded-4 p-5 text-center bg-white">
+            <div class="mb-3"><i class="bi bi-journal-x text-muted" style="font-size: 3rem;"></i></div>
+            <h4 class="h5 fw-bold text-dark mb-1">No Books Found</h4>
+            <p class="text-muted small mb-3">We could not find any books matching your current search or filter criteria.</p>
+            <div>
+                <a href="<?= esc(route_url('books')) ?>" class="btn btn-outline-primary btn-sm px-3">View Full Catalogue</a>
+            </div>
+        </div>
+    <?php else: ?>
+        <div class="row g-3">
+            <?php foreach ($books as $b): ?>
+                <?php 
+                $isAvailable = (int)$b['available_copies'] > 0;
+                $rentAmount = rent_for_price($b['price']);
+                ?>
+                <div class="col-xl-4 col-md-6">
+                    <div class="card border-0 shadow-sm h-100 rounded-4 p-3 bg-white d-flex flex-column transition-hover">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <span class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill px-2 py-1 small">
+                                <?= esc($b['category_name'] ?? 'General') ?>
+                            </span>
+                            <?php if ($isAvailable): ?>
+                                <span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill px-2 py-1 small">
+                                    <i class="bi bi-check-circle-fill me-1"></i> <?= (int)$b['available_copies'] ?> / <?= (int)$b['total_copies'] ?> Available
+                                </span>
+                            <?php else: ?>
+                                <span class="badge bg-danger-subtle text-danger border border-danger-subtle rounded-pill px-2 py-1 small">
+                                    <i class="bi bi-x-circle-fill me-1"></i> Out of Stock
+                                </span>
+                            <?php endif; ?>
+                        </div>
+
+                        <h5 class="h6 fw-bold text-dark mb-1 text-truncate" title="<?= esc($b['title']) ?>"><?= esc($b['title']) ?></h5>
+                        <p class="text-secondary small mb-2"><i class="bi bi-person me-1"></i><?= esc($b['author']) ?></p>
+
+                        <?php if (!empty($b['publisher'])): ?>
+                            <p class="text-muted small mb-3 text-truncate" style="font-size: 0.8rem;"><i class="bi bi-building me-1"></i><?= esc($b['publisher']) ?></p>
+                        <?php else: ?>
+                            <div class="mb-3"></div>
+                        <?php endif; ?>
+
+                        <div class="mt-auto pt-3 border-top">
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <div>
+                                    <span class="text-muted small d-block" style="font-size: 0.75rem;">Price / Rent (14d)</span>
+                                    <span class="fw-bold text-dark"><?= money($b['price']) ?></span>
+                                    <span class="text-secondary small">(Rent: <?= money($rentAmount) ?>)</span>
+                                </div>
+                            </div>
+
+                            <div class="d-grid gap-2">
+                                <?php if (is_librarian_logged_in()): ?>
+                                    <a href="<?= esc(route_url('librarian/books/edit', ['id' => $b['id']])) ?>" class="btn btn-sm btn-outline-secondary">
+                                        <i class="bi bi-pencil-square me-1"></i> Manage Book
+                                    </a>
+                                <?php elseif (is_student_logged_in()): ?>
+                                    <a href="<?= esc(route_url('book/view', ['id' => $b['id']])) ?>" class="btn btn-sm <?= $isAvailable ? 'btn-primary' : 'btn-outline-secondary' ?>">
+                                        <?= $isAvailable ? '<i class="bi bi-bookmark-plus me-1"></i> View & Request' : '<i class="bi bi-eye me-1"></i> View Details' ?>
+                                    </a>
+                                <?php else: ?>
+                                    <a href="<?= esc(route_url('login')) ?>" class="btn btn-sm btn-outline-primary">
+                                        <i class="bi bi-box-arrow-in-right me-1"></i> Login to Borrow
+                                    </a>
+                                <?php endif; ?>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            <?php endforeach; ?>
+        </div>
+    <?php endif; ?>
     <?php
-    render('Library Books Catalogue', ob_get_clean());
+    render('Search Books', ob_get_clean());
 }
 
 function book_view_page() {
@@ -998,6 +1122,20 @@ function student_receipts_page() {
 function receipt_pdf_page() {
     $id = (int)($_GET['id'] ?? 0);
     $format = trim($_GET['format'] ?? 'pdf');
+
+    $payment = library()->paymentById($id);
+    if (!$payment || $payment['status'] !== 'Completed') {
+        http_response_code(404);
+        exit('Receipt not found.');
+    }
+
+    // Access Control (IDOR Protection)
+    if (!is_librarian_logged_in()) {
+        if (!is_student_logged_in() || (int)current_student()['id'] !== (int)$payment['student_id']) {
+            http_response_code(403);
+            exit('Access denied. Please log in to view this receipt.');
+        }
+    }
 
     if ($format === 'html') {
         $html = receipt_service()->renderReceiptHtml($id);
@@ -1431,9 +1569,14 @@ function librarian_requests_page() {
                             <td><?= (int)($r['available_copies'] ?? 0) ?></td>
                             <td>
                                 <!-- Approve Modal Button -->
-                                <button type="button" class="btn btn-sm btn-success me-1" data-bs-toggle="modal" data-bs-target="#approveModal<?= $r['id'] ?>">Approve</button>
+                                <button type="button" class="btn btn-sm btn-success me-1" data-bs-toggle="modal" data-bs-target="#approveModal<?= $r['id'] ?>"><i class="bi bi-check-lg"></i> Approve</button>
                                 <!-- Reject Modal Button -->
-                                <button type="button" class="btn btn-sm btn-danger" data-bs-toggle="modal" data-bs-target="#rejectModal<?= $r['id'] ?>">Reject</button>
+                                <button type="button" class="btn btn-sm btn-danger me-1" data-bs-toggle="modal" data-bs-target="#rejectModal<?= $r['id'] ?>"><i class="bi bi-x-lg"></i> Reject</button>
+                                <!-- Hold Action Form -->
+                                <form method="post" action="<?= esc(route_url('librarian/requests/hold', ['id' => $r['id']])) ?>" class="d-inline" onsubmit="return confirm('Place this request on hold?');">
+                                    <?= csrf_field() ?>
+                                    <button class="btn btn-sm btn-outline-warning text-dark"><i class="bi bi-pause-fill"></i> Hold</button>
+                                </form>
                             </td>
                         </tr>
 
@@ -1507,6 +1650,12 @@ function librarian_reject_request_page() {
 
 function librarian_hold_request_page() {
     require_librarian();
+    if (!is_post()) redirect_to('librarian/requests');
+    verify_csrf();
+
+    $id = (int)($_GET['id'] ?? 0);
+    $result = library()->holdRequest($id);
+    flash($result['ok'] ? 'success' : 'danger', $result['message'] ?? 'Unable to place request on hold.');
     redirect_to('librarian/requests');
 }
 
@@ -1676,7 +1825,11 @@ function librarian_students_page() {
     $q = trim($_GET['q'] ?? '');
     $students = $q === ''
         ? db()->fetchAll('SELECT * FROM students ORDER BY full_name ASC')
-        : db()->fetchAll('SELECT * FROM students WHERE full_name LIKE :q OR enrollment_number LIKE :q OR email LIKE :q ORDER BY full_name ASC', ['q' => "%{$q}%"]);
+        : db()->fetchAll('SELECT * FROM students WHERE full_name LIKE :q1 OR enrollment_number LIKE :q2 OR email LIKE :q3 ORDER BY full_name ASC', [
+            'q1' => "%{$q}%",
+            'q2' => "%{$q}%",
+            'q3' => "%{$q}%",
+        ]);
 
     ob_start();
     ?>
@@ -1847,7 +2000,12 @@ function librarian_payments_page() {
                                     <i class="bi bi-file-earmark-pdf-fill text-danger me-1"></i> View / Print PDF
                                 </a>
                             <?php else: ?>
-                                <span class="text-muted small">—</span>
+                                <form method="post" action="<?= esc(route_url('librarian/payments/mark-offline', ['id' => $p['id']])) ?>" class="d-inline" onsubmit="return confirm('Mark this pending payment as collected via cash?');">
+                                    <?= csrf_field() ?>
+                                    <button class="btn btn-sm btn-success py-1 px-2 fw-semibold">
+                                        <i class="bi bi-cash-stack me-1"></i> Mark Paid (Cash)
+                                    </button>
+                                </form>
                             <?php endif; ?>
                         </td>
                     </tr>
@@ -1861,6 +2019,12 @@ function librarian_payments_page() {
 
 function librarian_mark_offline_payment_page() {
     require_librarian();
+    if (!is_post()) redirect_to('librarian/payments');
+    verify_csrf();
+
+    $id = (int)($_GET['id'] ?? 0);
+    $result = library()->recordPaymentCompletion($id, 'cash');
+    flash($result['ok'] ? 'success' : 'danger', $result['message'] ?? 'Unable to record payment completion.');
     redirect_to('librarian/payments');
 }
 
